@@ -1,6 +1,6 @@
 // language=Dart
 const String buildIosCommand = r'''
-import 'package:phntm_release_ios_sidekick_plugin/phntm_release_ios_sidekick_plugin.dart';
+import 'package:phntmxyz_ios_publishing_sidekick_plugin/phntmxyz_ios_publishing_sidekick_plugin.dart';
 import 'package:sidekick_core/sidekick_core.dart';
 
 class BuildIosCommand extends Command {

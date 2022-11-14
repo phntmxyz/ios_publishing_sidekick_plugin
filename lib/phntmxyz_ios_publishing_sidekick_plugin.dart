@@ -1,4 +1,4 @@
-library phntm_release_ios_sidekick_plugin;
+library phntmxyz_ios_publishing_sidekick_plugin;
 
 export 'src/apple/export_options.dart';
 export 'src/apple/keychain.dart';

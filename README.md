@@ -13,10 +13,10 @@ Generates a sidekick command `BuildIosCommand` that builds the flutter app for i
 - install `sidekick`: `dart pub global activate sidekick`
 - generate custom sidekick CLI: `sidekick init`
 
-### Install phntm_release_ios_sidekick_plugin
+### Install phntmxyz_ios_publishing_sidekick_plugin
 
 ```bash
-<cli> sidekick plugins install phntm_release_ios_sidekick_plugin
+<cli> sidekick plugins install phntmxyz_ios_publishing_sidekick_plugin
 ```
 ## License
 

@@ -8,7 +8,7 @@ Future<void> main() async {
   final SidekickPackage package = PluginContext.sidekickPackage;
 
   if (PluginContext.localPlugin == null) {
-    pubAddDependency(package, 'phntm_release_ios_sidekick_plugin');
+    pubAddDependency(package, 'phntmxyz_ios_publishing_sidekick_plugin');
   } else {
     // For local development
     pubAddLocalDependency(package, PluginContext.localPlugin!.root.path);

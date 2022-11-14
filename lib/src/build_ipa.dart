@@ -1,11 +1,11 @@
 import 'package:dcli/dcli.dart';
-import 'package:phntm_release_ios_sidekick_plugin/src/apple/export_options.dart';
-import 'package:phntm_release_ios_sidekick_plugin/src/apple/keychain.dart';
-import 'package:phntm_release_ios_sidekick_plugin/src/apple/p12.dart';
-import 'package:phntm_release_ios_sidekick_plugin/src/apple/pbxproj.dart';
-import 'package:phntm_release_ios_sidekick_plugin/src/apple/plist_writer.dart';
-import 'package:phntm_release_ios_sidekick_plugin/src/apple/provisioning_profile.dart';
-import 'package:phntm_release_ios_sidekick_plugin/src/util/git_utils.dart';
+import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/export_options.dart';
+import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/keychain.dart';
+import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/p12.dart';
+import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/pbxproj.dart';
+import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/plist_writer.dart';
+import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/provisioning_profile.dart';
+import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/util/git_utils.dart';
 import 'package:sidekick_core/sidekick_core.dart';
 
 /// Manually signs and archives a iOS project
