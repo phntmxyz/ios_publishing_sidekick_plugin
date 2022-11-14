@@ -109,6 +109,10 @@ File buildIpa({
     }
   }
 
-  // TODO to generalize, find where the 'app' name is coming from
-  return exportDir.file('app.ipa');
+  final ipa = exportDir
+      .listSync()
+      .whereType<File>()
+      .firstWhere((file) => file.name.endsWith('.ipa'));
+
+  return ipa;
 }
