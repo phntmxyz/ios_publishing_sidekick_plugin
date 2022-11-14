@@ -15,13 +15,14 @@ Future<void> main() async {
   }
   pubGet(package);
 
-  final commandFile = package.root.file('lib/src/build_ios_command.dart');
+  final commandFile =
+      package.root.file('lib/src/commands/build_ios_command.dart');
   commandFile.writeAsStringSync(buildIosCommand);
 
   registerPlugin(
     sidekickCli: package,
     import:
-        "import 'package:${package.name}/src/phntm_release_ios_sidekick_plugin.dart';",
+        "import 'package:${package.name}/src/commands/build_ios_command.dart';",
     command: 'BuildIosCommand()',
   );
 }
