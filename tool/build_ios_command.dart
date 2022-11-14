@@ -19,8 +19,7 @@ class BuildIosCommand extends Command {
           "not ${Platform.operatingSystem}";
     }
 
-    final distribution = argResults!['distribution'] as String?;
-    print('Building iOS app for distribution $distribution');
+    print('Building iOS app (ipa)');
     if (!mainProject!.buildDir.existsSync()) {
       mainProject!.buildDir.createSync();
     }
@@ -28,8 +27,13 @@ class BuildIosCommand extends Command {
       _releaseDir.deleteSync(recursive: true);
     }
 
+    // Load iOS dependencies and build dart source
     flutter(
-      ['build', 'ios', '--config-only'],
+      [
+        'build',
+        'ios',
+        '--config-only',
+      ],
       workingDirectory: mainProject!.root,
     );
 
@@ -51,6 +55,7 @@ class BuildIosCommand extends Command {
     //     vault.loadFile('appstore.mobileprovision.gpg').asProvisioningProfile();
     // final certificate = vault.loadFile('ios_distribution_certificate.p12.gpg');
 
+    // Build the ipa with manual signing
     final ipa = buildIpa(
       // TODO set your bundle identifier
       bundleIdentifier: 'com.example.app',
