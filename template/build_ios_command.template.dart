@@ -1,5 +1,3 @@
-// language=Dart
-const String buildIosCommand = r'''
 import 'package:phntmxyz_ios_publishing_sidekick_plugin/phntmxyz_ios_publishing_sidekick_plugin.dart';
 import 'package:sidekick_core/sidekick_core.dart';
 
@@ -43,7 +41,7 @@ class BuildIosCommand extends Command {
         .asProvisioningProfile();
     // TODO locate your signing certificate
     final certificate =
-    mainProject!.root.file('ios/ios_distribution_certificate.p12.gpg');
+        mainProject!.root.file('ios/ios_distribution_certificate.p12.gpg');
 
     // // Alternatively load the file from a secure location, i.e. sidekick_vault
     // // <cli> sidekick plugins install sidekick_vault
@@ -79,4 +77,3 @@ class BuildIosCommand extends Command {
     return releaseIpa;
   }
 }
-''';
