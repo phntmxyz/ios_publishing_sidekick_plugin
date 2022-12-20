@@ -56,8 +56,12 @@ class Keychain {
       start('security unlock-keychain -p "${_password ?? ''}"');
     } else {
       // prevent the keychain from locking after 5min
-      start('security set-keychain-settings -lut ${const Duration(hours: 2).inSeconds} ${file.absolute.path}');
-      start('security unlock-keychain -p "${_password ?? ''}" ${file.absolute.path}');
+      start(
+        'security set-keychain-settings -lut ${const Duration(hours: 2).inSeconds} ${file.absolute.path}',
+      );
+      start(
+        'security unlock-keychain -p "${_password ?? ''}" ${file.absolute.path}',
+      );
     }
   }
 

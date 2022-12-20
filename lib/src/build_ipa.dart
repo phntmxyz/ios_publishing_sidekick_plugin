@@ -35,7 +35,8 @@ File buildIpa({
   print('Building the INVO iOS app using:');
   print('signingCertificate: ${certificateInfo.friendlyName}');
   print(
-      'provisioningProfile: ${provisioningProfile.name} (${provisioningProfile.uuid})');
+    'provisioningProfile: ${provisioningProfile.name} (${provisioningProfile.uuid})',
+  );
 
   print('Adjusting Xcode project.pbxproj file');
   final pbxproj = mainProject!.root

@@ -25,11 +25,24 @@ class PListWriter {
 extension PlistXmlBuilderExt on xml.XmlElement {
   void addValue(dynamic value) {
     if (value is String) {
-      children.add(xml.XmlElement(xml.XmlName('string'), [], [xml.XmlText(value)]));
+      children
+          .add(xml.XmlElement(xml.XmlName('string'), [], [xml.XmlText(value)]));
     } else if (value is int) {
-      children.add(xml.XmlElement(xml.XmlName('integer'), [], [xml.XmlText(value.toString())]));
+      children.add(
+        xml.XmlElement(
+          xml.XmlName('integer'),
+          [],
+          [xml.XmlText(value.toString())],
+        ),
+      );
     } else if (value is double) {
-      children.add(xml.XmlElement(xml.XmlName('real'), [], [xml.XmlText(value.toString())]));
+      children.add(
+        xml.XmlElement(
+          xml.XmlName('real'),
+          [],
+          [xml.XmlText(value.toString())],
+        ),
+      );
     } else if (value is bool) {
       if (value) {
         children.add(xml.XmlElement(xml.XmlName('true')));
@@ -53,7 +66,8 @@ extension PlistXmlBuilderExt on xml.XmlElement {
     final dict = xml.XmlElement(xml.XmlName('dict'));
     for (final entry in map.entries) {
       final key = entry.key as String;
-      dict.children.add(xml.XmlElement(xml.XmlName('key'), [], [xml.XmlText(key)]));
+      dict.children
+          .add(xml.XmlElement(xml.XmlName('key'), [], [xml.XmlText(key)]));
 
       final value = entry.value;
       if (value is Map<dynamic, dynamic>) {
