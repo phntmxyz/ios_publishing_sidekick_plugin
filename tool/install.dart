@@ -2,22 +2,16 @@ import 'package:sidekick_core/sidekick_core.dart'
     hide cliName, repository, mainProject;
 import 'package:sidekick_plugin_installer/sidekick_plugin_installer.dart';
 
-import 'build_ios_command.dart';
-
 Future<void> main() async {
   final SidekickPackage package = PluginContext.sidekickPackage;
-
-  if (PluginContext.localPlugin == null) {
-    pubAddDependency(package, 'phntmxyz_ios_publishing_sidekick_plugin');
-  } else {
-    // For local development
-    pubAddLocalDependency(package, PluginContext.localPlugin!.root.path);
-  }
+  addSelfAsDependency();
   pubGet(package);
 
   final commandFile =
       package.root.file('lib/src/commands/build_ios_command.dart');
-  commandFile.writeAsStringSync(buildIosCommand);
+  final template = PluginContext.installerPlugin.root
+      .file('template/build_ios_command.template.dart');
+  template.copySync(commandFile.path);
 
   registerPlugin(
     sidekickCli: package,
