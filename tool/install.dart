@@ -7,11 +7,9 @@ Future<void> main() async {
   addSelfAsDependency();
   pubGet(package);
 
-  final commandFile =
-      package.root.file('lib/src/commands/build_ios_command.dart');
   PluginContext.installerPlugin.root
       .file('template/build_ios_command.template.dart')
-      .copy(commandFile.path);
+      .copy(package.root.file('lib/src/commands/build_ios_command.dart').path);
 
   registerPlugin(
     sidekickCli: package,
