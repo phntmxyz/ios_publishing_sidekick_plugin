@@ -9,10 +9,10 @@ dependencies:
   dcli: ^1.16.2
   deep_pick: ^0.10.0
   plist_parser: ^0.0.9
-  sidekick_core: '>=0.7.1 <1.0.0'
-  sidekick_vault: ^0.6.0
+  sidekick_core: ^1.0.0
+  sidekick_vault: ^0.9.0
   xml: ^6.1.0
 
 dev_dependencies:
   lint: ^1.5.0
-  sidekick_plugin_installer: ^0.2.1
+  sidekick_plugin_installer: ^0.3.0
