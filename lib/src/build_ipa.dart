@@ -106,7 +106,11 @@ File buildIpa({
       keyChain.file?.delete();
     }
     if (revertLocalChanges) {
-      pbxproj.file.discardLocalChanges();
+      try {
+        pbxproj.file.discardLocalChanges();
+      } catch (e) {
+        printerr('Failed to revert changes of ${pbxproj.file.path}');
+      }
     }
   }
 

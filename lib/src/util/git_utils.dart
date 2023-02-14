@@ -4,12 +4,24 @@ import 'package:sidekick_core/sidekick_core.dart';
 
 extension LocalChanges on File {
   bool hasLocalChanges() {
-    final progress =
-        dcli.startFromArgs('git', ['diff', '--exit-code', absolute.path]);
-    return progress.exitCode == 1;
+    try {
+      final progress = Progress.printStdErr();
+      dcli.startFromArgs(
+        'git',
+        ['diff', '-q', '--exit-code', absolute.path],
+        nothrow: true,
+        progress: progress,
+        workingDirectory: SidekickContext.projectRoot.path,
+      );
+      return progress.exitCode == 1;
+    } catch (e) {
+      // most likely no git repo
+      return true;
+    }
   }
 
   void discardLocalChanges() {
-    'git checkout ${absolute.path}'.run;
+    'git checkout -q ${absolute.path}'
+        .start(workingDirectory: SidekickContext.projectRoot.path);
   }
 }
