@@ -20,7 +20,10 @@ File buildIpa({
   required ExportMethod method,
   required String bundleIdentifier,
   bool? newKeychain,
+  DartPackage? package,
 }) {
+  final project = package ?? mainProject!;
+
   installProvisioningProfile(provisioningProfile);
   final certificateInfo = readP12CertificateInfo(certificate);
 
@@ -32,14 +35,14 @@ File buildIpa({
   keyChain.addPkcs12Certificate(certificate);
   keyChain.unlock();
 
-  print('Building the INVO iOS app using:');
+  print('Building the ${project.name} iOS app using:');
   print('signingCertificate: ${certificateInfo.friendlyName}');
   print(
     'provisioningProfile: ${provisioningProfile.name} (${provisioningProfile.uuid})',
   );
 
   print('Adjusting Xcode project.pbxproj file');
-  final pbxproj = mainProject!.root
+  final pbxproj = project.root
       .file('ios/Runner.xcodeproj/project.pbxproj')
       .asXcodePbxproj();
   final revertLocalChanges = !pbxproj.file.hasLocalChanges();
@@ -59,11 +62,11 @@ File buildIpa({
     'thinning': '<none>',
   }.asPlist();
 
-  final exportOptionsFile = mainProject!.buildDir.file('exportOptions.plist');
+  final exportOptionsFile = project.buildDir.file('exportOptions.plist');
   exportOptionsFile.writeAsStringSync(exportOptions);
 
-  final archive = mainProject!.buildDir.file('ios/archive.xcarchive');
-  final exportDir = mainProject!.buildDir.directory('ios/ipa/Runner');
+  final archive = project.buildDir.file('ios/archive.xcarchive');
+  final exportDir = project.buildDir.directory('ios/ipa/Runner');
 
   try {
     pbxproj.setBundleIdentifier(bundleIdentifier);
@@ -74,10 +77,7 @@ File buildIpa({
       'xcodebuild',
       [
         'archive',
-        ...[
-          '-workspace',
-          mainProject!.root.file('ios/Runner.xcworkspace').path
-        ],
+        ...['-workspace', project.root.file('ios/Runner.xcworkspace').path],
         ...['-scheme', 'Runner'],
         ...['-sdk', 'iphoneos'],
         ...['-configuration', 'Release'],
@@ -86,7 +86,7 @@ File buildIpa({
         'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
         'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
       ],
-      workingDirectory: mainProject!.root.absolute.path,
+      workingDirectory: project.root.absolute.path,
     );
 
     // Export ipa
@@ -98,7 +98,7 @@ File buildIpa({
         ...['-exportOptionsPlist', exportOptionsFile.path],
         ...['-exportPath', exportDir.path],
       ],
-      workingDirectory: mainProject!.root.absolute.path,
+      workingDirectory: project.root.absolute.path,
     );
   } finally {
     // Clean up
