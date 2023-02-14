@@ -22,13 +22,18 @@ File buildIpa({
   bool? newKeychain,
   DartPackage? package,
 }) {
+  if (bundleIdentifier.contains('_')) {
+    throw 'Bundle identifier must not contain underscores\n'
+        'See https://developer.apple.com/documentation/bundleresources/information_property_list/cfbundleidentifier';
+  }
+
   final project = package ?? mainProject!;
 
   installProvisioningProfile(provisioningProfile);
   final certificateInfo = readP12CertificateInfo(certificate);
 
   final keyChain = newKeychain == true
-      ? (Keychain(name: 'invo')
+      ? (Keychain(name: project.name)
         ..create(override: true)
         ..setAsDefault())
       : Keychain.login();
@@ -42,9 +47,7 @@ File buildIpa({
   );
 
   print('Adjusting Xcode project.pbxproj file');
-  final pbxproj = project.root
-      .file('ios/Runner.xcodeproj/project.pbxproj')
-      .asXcodePbxproj();
+  final pbxproj = project.root.file('ios/Runner.xcodeproj/project.pbxproj').asXcodePbxproj();
   final revertLocalChanges = !pbxproj.file.hasLocalChanges();
 
   // See "xcodebuild -h" for available exportOptionsPlist keys.
@@ -114,10 +117,7 @@ File buildIpa({
     }
   }
 
-  final ipa = exportDir
-      .listSync()
-      .whereType<File>()
-      .firstWhere((file) => file.name.endsWith('.ipa'));
+  final ipa = exportDir.listSync().whereType<File>().firstWhere((file) => file.name.endsWith('.ipa'));
 
   return ipa;
 }
