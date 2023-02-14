@@ -22,13 +22,18 @@ File buildIpa({
   bool? newKeychain,
   DartPackage? package,
 }) {
+  if (bundleIdentifier.contains('_')) {
+    throw 'Bundle identifier must not contain underscores\n'
+        'See https://developer.apple.com/documentation/bundleresources/information_property_list/cfbundleidentifier';
+  }
+
   final project = package ?? mainProject!;
 
   installProvisioningProfile(provisioningProfile);
   final certificateInfo = readP12CertificateInfo(certificate);
 
   final keyChain = newKeychain == true
-      ? (Keychain(name: 'invo')
+      ? (Keychain(name: project.name)
         ..create(override: true)
         ..setAsDefault())
       : Keychain.login();
