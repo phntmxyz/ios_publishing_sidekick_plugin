@@ -47,7 +47,9 @@ File buildIpa({
   );
 
   print('Adjusting Xcode project.pbxproj file');
-  final pbxproj = project.root.file('ios/Runner.xcodeproj/project.pbxproj').asXcodePbxproj();
+  final pbxproj = project.root
+      .file('ios/Runner.xcodeproj/project.pbxproj')
+      .asXcodePbxproj();
   final revertLocalChanges = !pbxproj.file.hasLocalChanges();
 
   // See "xcodebuild -h" for available exportOptionsPlist keys.
@@ -117,7 +119,10 @@ File buildIpa({
     }
   }
 
-  final ipa = exportDir.listSync().whereType<File>().firstWhere((file) => file.name.endsWith('.ipa'));
+  final ipa = exportDir
+      .listSync()
+      .whereType<File>()
+      .firstWhere((file) => file.name.endsWith('.ipa'));
 
   return ipa;
 }
