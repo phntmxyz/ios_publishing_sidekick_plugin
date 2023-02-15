@@ -41,6 +41,24 @@ class XcodePbxproj {
     );
     file.writeAsStringSync(update);
   }
+
+  void setDevelopmentTeam(String developmentTeam) {
+    file.verifyExistsOrThrow();
+
+    print('Changing DEVELOPMENT_TEAM to "$developmentTeam"');
+    final content = file.readAsStringSync();
+    final bundleIdentifierRegex = RegExp('DEVELOPMENT_TEAM =.*;');
+    final match = bundleIdentifierRegex.hasMatch(content);
+    if (!match) {
+      // TODO insert
+      throw "project.pbxproj doesn't contain 'DEVELOPMENT_TEAM'";
+    }
+    final update = content.replaceAll(
+      bundleIdentifierRegex,
+      'DEVELOPMENT_TEAM = "$developmentTeam";',
+    );
+    file.writeAsStringSync(update);
+  }
 }
 
 extension XcodePbxprojFile on File {
