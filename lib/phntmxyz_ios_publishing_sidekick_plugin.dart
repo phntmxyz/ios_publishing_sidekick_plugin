@@ -1,3 +1,4 @@
+/// Helps with iOS publishing, similar to fastlane but without ruby.
 library phntmxyz_ios_publishing_sidekick_plugin;
 
 export 'src/apple/export_options.dart';

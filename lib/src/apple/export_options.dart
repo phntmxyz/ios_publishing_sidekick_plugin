@@ -1,5 +1,5 @@
 /// ExportOptionsPlist method
-//
+///
 /// Describes how Xcode should export the archive.
 enum ExportMethod {
   adHoc('ad-hoc'),
