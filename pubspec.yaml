@@ -3,16 +3,16 @@ description: Generated sidekick plugin (template shared-code)
 version: 0.1.0
 
 environment:
-  sdk: '>=2.17.0 <3.0.0'
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
-  dcli: ^1.16.2
-  deep_pick: ^0.10.0
+  dcli: ^2.2.0
+  deep_pick: ^1.0.0
   plist_parser: ^0.0.9
-  sidekick_core: ^1.0.0
-  sidekick_vault: ^0.9.0
+  sidekick_core: ^2.0.0
+  sidekick_vault: ^1.0.0
   xml: ^6.1.0
 
 dev_dependencies:
   lint: ^1.5.0
-  sidekick_plugin_installer: ^0.3.0
+  sidekick_plugin_installer: ^1.1.0
