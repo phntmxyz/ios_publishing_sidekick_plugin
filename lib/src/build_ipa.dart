@@ -94,6 +94,9 @@ File buildIpa({
       workingDirectory: project.root.absolute.path,
     );
 
+    // unlock keychain again, in case the build took too long
+    keyChain.unlock();
+
     // Export ipa
     startFromArgs(
       'xcodebuild',
