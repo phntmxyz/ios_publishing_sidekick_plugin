@@ -2,13 +2,8 @@ import 'dart:io';
 
 import 'package:dcli/dcli.dart';
 
-P12CertificateInfo readP12CertificateInfo(File phntmCertificate) {
-  final progress = Progress.capture();
-  start(
-    'openssl pkcs12 -info -in ${phntmCertificate.absolute.path} -clcerts -nokeys -passin pass:',
-    progress: progress,
-  );
-  final certInfo = progress.lines.join('\n');
+P12CertificateInfo readP12CertificateInfo(File certificate) {
+  final certInfo = _opensslPkcs12(certificate);
 
   final friendlyNameRegEx = RegExp('friendlyName: (.*)');
   final friendlyName = friendlyNameRegEx.firstMatch(certInfo)?.group(1);
@@ -20,6 +15,31 @@ P12CertificateInfo readP12CertificateInfo(File phntmCertificate) {
   );
 }
 
+String _opensslPkcs12(File certificate) {
+  final command =
+      'openssl pkcs12 -info -in ${certificate.absolute.path} -clcerts -nokeys -passin pass:';
+
+  final normalProgress = Progress.capture();
+  try {
+    start(command, progress: normalProgress);
+    return normalProgress.out;
+  } catch (normalE) {
+    // Apple sometimes uses an older version of openssl which can't be read by
+    // newer versions unless the -legacy flag is set.
+    // The flag is not supported by older openssl versions, so we have to try twice
+    final legacyProgress = Progress.capture();
+    try {
+      start('$command -legacy', progress: legacyProgress);
+      return legacyProgress.out;
+    } catch (legacyE) {
+      print('Failed to read certificate with openssl:');
+      print('Without -legacy flag:\n$normalE\n');
+      print('With -legacy flag:\n$legacyE\n');
+      rethrow;
+    }
+  }
+}
+
 class P12CertificateInfo {
   final String friendlyName;
   final String localKeyId;
@@ -28,4 +48,13 @@ class P12CertificateInfo {
     required this.friendlyName,
     required this.localKeyId,
   });
+
+  @override
+  String toString() {
+    return 'P12CertificateInfo{friendlyName: $friendlyName, localKeyId: $localKeyId}';
+  }
+}
+
+extension on Progress {
+  String get out => lines.join('\n');
 }
