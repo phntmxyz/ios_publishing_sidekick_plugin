@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Unlock keychain after long builds before signing #6
+- Support for OpenSSL 3.1.0 with the `-legacy` flag #8
+
 ## 0.2.0
 
 - Update to Dart 3
