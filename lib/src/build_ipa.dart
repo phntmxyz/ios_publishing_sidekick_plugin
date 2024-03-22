@@ -82,11 +82,11 @@ File buildIpa({
     Future<void> xcodeBuildArchive() async {
       final completer = Completer<void>();
       final process = Progress.print(capture: true);
-      Timer? timer;
+      Timer? timeoutTimer;
       process.stream.listen((lines) {
-        timer?.cancel();
+        timeoutTimer?.cancel();
         // xcodebuild prints a lot, being silent for a minute is not a good sign
-        timer = Timer(const Duration(seconds: 60), () {
+        timeoutTimer = Timer(const Duration(seconds: 60), () {
           completer.completeError(XcodeBuildArchiveTimeoutException());
         });
       });
@@ -112,6 +112,7 @@ File buildIpa({
         completer.completeError(e);
       });
 
+      timeoutTimer?.cancel();
       return completer.future;
     }
 
