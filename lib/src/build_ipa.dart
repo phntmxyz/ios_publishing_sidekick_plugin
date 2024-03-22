@@ -88,8 +88,8 @@ File buildIpa({
       void restartTimeoutTimer() {
         timeoutTimer?.cancel();
         if (completer.isCompleted) return;
-        // xcodebuild prints a lot, being silent for a minute is not a good sign
-        timeoutTimer = Timer(const Duration(seconds: 60), () {
+        // xcodebuild prints a lot, being silent for a while is not a good sign
+        timeoutTimer = Timer(const Duration(minutes: 3), () {
           completer.completeError(XcodeBuildArchiveTimeoutException());
           process?.kill();
         });
