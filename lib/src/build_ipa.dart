@@ -84,73 +84,15 @@ File buildIpa({
     pbxproj.setBundleIdentifier(bundleIdentifier);
     pbxproj.setProvisioningProfileSpecifier(provisioningProfile.name);
 
-    /// xcodebuild archive but with timeout in case it hangs
-    Future<void> xcodeBuildArchive() async {
-      final completer = Completer<void>();
-      Timer? timeoutTimer;
-      Process? process;
-      void restartTimeoutTimer() {
-        timeoutTimer?.cancel();
-        if (completer.isCompleted) return;
-        // xcodebuild prints a lot, being silent for a while is not a good sign
-        timeoutTimer = Timer(const Duration(minutes: 3), () {
-          completer.completeError(XcodeBuildArchiveTimeoutException());
-          process?.kill();
-        });
-      }
-
-      final args = [
-        'archive',
-        ...['-workspace', project.root.file('ios/Runner.xcworkspace').path],
-        ...['-scheme', 'Runner'],
-        ...['-sdk', 'iphoneos'],
-        ...['-configuration', 'Release'],
-        ...['-archivePath', archive.path],
-        'CODE_SIGN_STYLE=Manual',
-        'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
-        'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
-      ];
-
-      print("xcodebuild ${args.join(' ')}");
-      process = await Process.start(
-        'xcodebuild',
-        args,
-        workingDirectory: project.root.absolute.path,
-      );
-      process.stdout.transform(utf8.decoder).listen((line) {
-        if (completer.isCompleted) return;
-        print(line);
-        restartTimeoutTimer();
-      });
-      process.stderr.transform(utf8.decoder).listen((line) {
-        if (completer.isCompleted) return;
-        printerr(line);
-        restartTimeoutTimer();
-      });
-      process.exitCode.then((exitCode) {
-        if (exitCode == 0) {
-          timeoutTimer?.cancel();
-          completer.complete();
-        } else {
-          completer.completeError(
-              'xcodebuild archive failed with exit code $exitCode');
-        }
-      });
-      return completer.future;
-    }
-
     // Archive
     try {
-      waitForEx(xcodeBuildArchive());
+      waitForEx(_xcodeBuildArchive(
+          project, archive, provisioningProfile, certificateInfo));
     } on XcodeBuildArchiveTimeoutException catch (_) {
       print(red('Xcode build archive stopped responding, trying again.'));
       print(
-        "Make sure to use newKeychain=true with Github Actions. Use newKeychain: env['CI'] == 'true', ",
+        "Make sure to use newKeychain=true with Github Actions. Use newKeychain: env['CI'] == 'true'",
       );
-      // try again, it is usually faster the second time.
-      // Hopefully fast enough to run before the keychain locks
-      keyChain.unlock();
-      waitForEx(xcodeBuildArchive());
     }
 
     // unlock keychain again, in case the build took too long
@@ -187,6 +129,66 @@ File buildIpa({
       .firstWhere((file) => file.name.endsWith('.ipa'));
 
   return ipa;
+}
+
+/// xcodebuild archive but with timeout in case it hangs
+Future<void> _xcodeBuildArchive(
+  DartPackage project,
+  File archive,
+  ProvisioningProfile provisioningProfile,
+  P12CertificateInfo certificateInfo,
+) async {
+  final completer = Completer<void>();
+  Timer? timeoutTimer;
+  Process? process;
+  void restartTimeoutTimer() {
+    timeoutTimer?.cancel();
+    if (completer.isCompleted) return;
+    // xcodebuild prints a lot, being silent for a while is not a good sign
+    timeoutTimer = Timer(const Duration(minutes: 3), () {
+      completer.completeError(XcodeBuildArchiveTimeoutException());
+      process?.kill();
+    });
+  }
+
+  final args = [
+    'archive',
+    ...['-workspace', project.root.file('ios/Runner.xcworkspace').path],
+    ...['-scheme', 'Runner'],
+    ...['-sdk', 'iphoneos'],
+    ...['-configuration', 'Release'],
+    ...['-archivePath', archive.path],
+    'CODE_SIGN_STYLE=Manual',
+    'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
+    'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
+  ];
+
+  print("xcodebuild ${args.join(' ')}");
+  process = await Process.start(
+    'xcodebuild',
+    args,
+    workingDirectory: project.root.absolute.path,
+  );
+  process.stdout.transform(utf8.decoder).listen((line) {
+    if (completer.isCompleted) return;
+    print(line);
+    restartTimeoutTimer();
+  });
+  process.stderr.transform(utf8.decoder).listen((line) {
+    if (completer.isCompleted) return;
+    printerr(line);
+    restartTimeoutTimer();
+  });
+  process.exitCode.then((exitCode) {
+    if (exitCode == 0) {
+      timeoutTimer?.cancel();
+      completer.complete();
+    } else {
+      completer
+          .completeError('xcodebuild archive failed with exit code $exitCode');
+    }
+  });
+  return completer.future;
 }
 
 class XcodeBuildArchiveTimeoutException implements Exception {
