@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dcli/dcli.dart';
 import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/export_options.dart';
@@ -79,6 +80,7 @@ File buildIpa({
     pbxproj.setBundleIdentifier(bundleIdentifier);
     pbxproj.setProvisioningProfileSpecifier(provisioningProfile.name);
 
+    /// xcodebuild archive but with timeout in case it hangs
     Future<void> xcodeBuildArchive() async {
       final completer = Completer<void>();
       Timer? timeoutTimer;
@@ -89,47 +91,46 @@ File buildIpa({
           completer.completeError(XcodeBuildArchiveTimeoutException());
         });
       }
+      final args = [
+        'archive',
+        ...['-workspace', project.root.file('ios/Runner.xcworkspace').path],
+        ...['-scheme', 'Runner'],
+        ...['-sdk', 'iphoneos'],
+        ...['-configuration', 'Release'],
+        ...['-archivePath', archive.path],
+        'CODE_SIGN_STYLE=Manual',
+        'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
+        'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
+      ];
 
-      final progress = Progress.capture();
-      progress.forEach(
-        (line) {
-          print(line);
-          restartTimeoutTimer();
-        },
-        stderr: (line) {
-          printerr(line);
-          restartTimeoutTimer();
-        },
+      print("xcodebuild ${args.join(' ')}");
+      final process = await Process.start(
+        'xcodebuild',
+        args,
+        workingDirectory: project.root.absolute.path,
       );
-
-      Future.delayed(const Duration(seconds: 1)).then((_) {
-        startFromArgs(
-          'xcodebuild',
-          [
-            'archive',
-            ...['-workspace', project.root.file('ios/Runner.xcworkspace').path],
-            ...['-scheme', 'Runner'],
-            ...['-sdk', 'iphoneos'],
-            ...['-configuration', 'Release'],
-            ...['-archivePath', archive.path],
-            'CODE_SIGN_STYLE=Manual',
-            'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
-            'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
-          ],
-          workingDirectory: project.root.absolute.path,
-          progress: progress,
-        );
-        completer.complete();
-      }).catchError((Object e) {
-        completer.completeError(e);
+      process.stdout.transform(utf8.decoder).listen((line) {
+        print(line);
+        restartTimeoutTimer();
       });
-
-      timeoutTimer?.cancel();
+      process.stderr.transform(utf8.decoder).listen((line) {
+        printerr(line);
+        restartTimeoutTimer();
+      });
+      process.exitCode.then((exitCode) {
+        if (exitCode == 0) {
+          timeoutTimer?.cancel();
+          completer.complete();
+        } else {
+          completer.completeError(
+              'xcodebuild archive failed with exit code $exitCode');
+        }
+      });
       return completer.future;
     }
 
+    // Archive
     try {
-      // Archive app
       waitForEx(xcodeBuildArchive());
     } on XcodeBuildArchiveTimeoutException catch (_) {
       print(red('Xcode build archive stopped responding, trying again.'));
