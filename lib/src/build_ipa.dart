@@ -35,11 +35,15 @@ File buildIpa({
   installProvisioningProfile(provisioningProfile);
   final certificateInfo = readP12CertificateInfo(certificate);
 
-  final keyChain = newKeychain == true
-      ? (Keychain(name: project.name)
+  final keyChain = () {
+    final bool isCi = env['CI'] == 'true';
+    if (newKeychain == true || isCi) {
+      return Keychain(name: project.name)
         ..create(override: true)
-        ..setAsDefault())
-      : Keychain.login();
+        ..setAsDefault();
+    }
+    return Keychain.login();
+  }();
   keyChain.addPkcs12Certificate(certificate);
   keyChain.unlock();
 
