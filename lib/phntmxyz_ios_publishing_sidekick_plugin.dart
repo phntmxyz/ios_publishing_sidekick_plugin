@@ -7,4 +7,4 @@ export 'src/apple/p12.dart';
 export 'src/apple/pbxproj.dart';
 export 'src/apple/plist_writer.dart';
 export 'src/apple/provisioning_profile.dart';
-export 'src/build_ipa.dart';
+export 'src/build_ipa.dart' show XcodeBuildArchiveTimeoutException, buildIpa;

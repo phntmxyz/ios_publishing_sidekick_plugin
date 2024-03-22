@@ -43,6 +43,7 @@ class Keychain {
       File(where).deleteSync();
     }
     start('security create-keychain -p "${_password ?? ''}" $where');
+    print("Created keychain $where");
   }
 
   /// Unlock the keychain, especially important on CI
@@ -54,6 +55,7 @@ class Keychain {
     final file = this.file;
     if (file == null) {
       start('security unlock-keychain -p "${_password ?? ''}"');
+      print('Unlocked keychain "login"');
     } else {
       // prevent the keychain from locking after 5min
       start(
@@ -62,6 +64,7 @@ class Keychain {
       start(
         'security unlock-keychain -p "${_password ?? ''}" ${file.absolute.path}',
       );
+      print('Unlocked keychain "$name" at ${file.absolute.path}');
     }
   }
 
