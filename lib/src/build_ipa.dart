@@ -87,7 +87,11 @@ File buildIpa({
     // Archive
     try {
       waitForEx(_xcodeBuildArchive(
-          project, archive, provisioningProfile, certificateInfo));
+        xcodeWorkspace: project.root.file('ios/Runner.xcworkspace'),
+        archiveOutput: archive,
+        provisioningProfile: provisioningProfile,
+        certificateInfo: certificateInfo,
+      ));
     } on XcodeBuildArchiveTimeoutException catch (_) {
       print(red('Xcode build archive stopped responding, trying again.'));
       print(
@@ -132,15 +136,16 @@ File buildIpa({
 }
 
 /// xcodebuild archive but with timeout in case it hangs
-Future<void> _xcodeBuildArchive(
-  DartPackage project,
-  File archive,
-  ProvisioningProfile provisioningProfile,
-  P12CertificateInfo certificateInfo,
-) async {
+Future<void> _xcodeBuildArchive({
+  required File xcodeWorkspace,
+  required File archiveOutput,
+  required ProvisioningProfile provisioningProfile,
+  required P12CertificateInfo certificateInfo,
+}) async {
   final completer = Completer<void>();
   Timer? timeoutTimer;
   Process? process;
+
   void restartTimeoutTimer() {
     timeoutTimer?.cancel();
     if (completer.isCompleted) return;
@@ -153,11 +158,11 @@ Future<void> _xcodeBuildArchive(
 
   final args = [
     'archive',
-    ...['-workspace', project.root.file('ios/Runner.xcworkspace').path],
+    ...['-workspace', xcodeWorkspace.path],
     ...['-scheme', 'Runner'],
     ...['-sdk', 'iphoneos'],
     ...['-configuration', 'Release'],
-    ...['-archivePath', archive.path],
+    ...['-archivePath', archiveOutput.path],
     'CODE_SIGN_STYLE=Manual',
     'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
     'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
@@ -167,7 +172,7 @@ Future<void> _xcodeBuildArchive(
   process = await Process.start(
     'xcodebuild',
     args,
-    workingDirectory: project.root.absolute.path,
+    workingDirectory: xcodeWorkspace.parent.path,
   );
   process.stdout.transform(utf8.decoder).listen((line) {
     if (completer.isCompleted) return;
