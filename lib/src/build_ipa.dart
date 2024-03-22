@@ -84,13 +84,17 @@ File buildIpa({
     Future<void> xcodeBuildArchive() async {
       final completer = Completer<void>();
       Timer? timeoutTimer;
+      Process? process;
       void restartTimeoutTimer() {
         timeoutTimer?.cancel();
+        if (completer.isCompleted) return;
         // xcodebuild prints a lot, being silent for a minute is not a good sign
         timeoutTimer = Timer(const Duration(seconds: 60), () {
           completer.completeError(XcodeBuildArchiveTimeoutException());
+          process?.kill();
         });
       }
+
       final args = [
         'archive',
         ...['-workspace', project.root.file('ios/Runner.xcworkspace').path],
@@ -104,16 +108,18 @@ File buildIpa({
       ];
 
       print("xcodebuild ${args.join(' ')}");
-      final process = await Process.start(
+      process = await Process.start(
         'xcodebuild',
         args,
         workingDirectory: project.root.absolute.path,
       );
       process.stdout.transform(utf8.decoder).listen((line) {
+        if (completer.isCompleted) return;
         print(line);
         restartTimeoutTimer();
       });
       process.stderr.transform(utf8.decoder).listen((line) {
+        if (completer.isCompleted) return;
         printerr(line);
         restartTimeoutTimer();
       });
@@ -134,6 +140,9 @@ File buildIpa({
       waitForEx(xcodeBuildArchive());
     } on XcodeBuildArchiveTimeoutException catch (_) {
       print(red('Xcode build archive stopped responding, trying again.'));
+      print(
+        "Make sure to use newKeychain=true with Github Actions. Use newKeychain: env['CI'] == 'true', ",
+      );
       // try again, it is usually faster the second time.
       // Hopefully fast enough to run before the keychain locks
       keyChain.unlock();
