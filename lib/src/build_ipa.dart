@@ -81,15 +81,26 @@ File buildIpa({
 
     Future<void> xcodeBuildArchive() async {
       final completer = Completer<void>();
-      final process = Progress.print(capture: true);
       Timer? timeoutTimer;
-      process.stream.listen((lines) {
+      void restartTimeoutTimer() {
         timeoutTimer?.cancel();
         // xcodebuild prints a lot, being silent for a minute is not a good sign
         timeoutTimer = Timer(const Duration(seconds: 60), () {
           completer.completeError(XcodeBuildArchiveTimeoutException());
         });
-      });
+      }
+
+      final progress = Progress.capture();
+      progress.forEach(
+        (line) {
+          print(line);
+          restartTimeoutTimer();
+        },
+        stderr: (line) {
+          printerr(line);
+          restartTimeoutTimer();
+        },
+      );
 
       Future.delayed(const Duration(seconds: 1)).then((_) {
         startFromArgs(
@@ -106,6 +117,7 @@ File buildIpa({
             'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
           ],
           workingDirectory: project.root.absolute.path,
+          progress: progress,
         );
         completer.complete();
       }).catchError((Object e) {
