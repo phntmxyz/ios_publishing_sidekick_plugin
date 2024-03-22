@@ -119,6 +119,7 @@ File buildIpa({
       // Archive app
       waitForEx(xcodeBuildArchive());
     } on XcodeBuildArchiveTimeoutException catch (_) {
+      print(red('Xcode build archive stopped responding, trying again.'));
       // try again, it is usually faster the second time.
       // Hopefully fast enough to run before the keychain locks
       keyChain.unlock();
