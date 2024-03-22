@@ -17,6 +17,11 @@ import 'package:sidekick_core/sidekick_core.dart';
 /// https://zach.codes/ios-builds-using-github-actions-without-fastlane/
 ///
 /// [newKeychain] defaults to `false` but should be set to `true` on CI
+///
+/// Adjust [archiveSilenceTimeout] depending on your CI system. It is the time of the
+/// `xcodebuild archive` process not outputting anything to stdout or stderr.
+/// When it stops outputting (because it waits for a password input in the UI),
+/// a [XcodeBuildArchiveTimeoutException] is thrown.
 File buildIpa({
   required File certificate,
   required ProvisioningProfile provisioningProfile,
@@ -24,6 +29,7 @@ File buildIpa({
   required String bundleIdentifier,
   bool? newKeychain,
   DartPackage? package,
+  Duration archiveSilenceTimeout = const Duration(minutes: 3),
 }) {
   if (bundleIdentifier.contains('_')) {
     throw 'Bundle identifier must not contain underscores\n'
@@ -86,17 +92,21 @@ File buildIpa({
 
     // Archive
     try {
-      waitForEx(_xcodeBuildArchive(
-        xcodeWorkspace: project.root.file('ios/Runner.xcworkspace'),
-        archiveOutput: archive,
-        provisioningProfile: provisioningProfile,
-        certificateInfo: certificateInfo,
-      ));
+      waitForEx(
+        _xcodeBuildArchive(
+          xcodeWorkspace: project.root.file('ios/Runner.xcworkspace'),
+          archiveOutput: archive,
+          provisioningProfile: provisioningProfile,
+          certificateInfo: certificateInfo,
+          silenceTimeout: archiveSilenceTimeout,
+        ),
+      );
     } on XcodeBuildArchiveTimeoutException catch (_) {
       print(red('Xcode build archive stopped responding, trying again.'));
       print(
         "Make sure to use newKeychain=true with Github Actions. Use newKeychain: env['CI'] == 'true'",
       );
+      rethrow;
     }
 
     // unlock keychain again, in case the build took too long
@@ -141,6 +151,7 @@ Future<void> _xcodeBuildArchive({
   required File archiveOutput,
   required ProvisioningProfile provisioningProfile,
   required P12CertificateInfo certificateInfo,
+  Duration silenceTimeout = const Duration(minutes: 3),
 }) async {
   final completer = Completer<void>();
   Timer? timeoutTimer;
@@ -150,7 +161,7 @@ Future<void> _xcodeBuildArchive({
     timeoutTimer?.cancel();
     if (completer.isCompleted) return;
     // xcodebuild prints a lot, being silent for a while is not a good sign
-    timeoutTimer = Timer(const Duration(minutes: 3), () {
+    timeoutTimer = Timer(silenceTimeout, () {
       completer.completeError(XcodeBuildArchiveTimeoutException());
       process?.kill();
     });
