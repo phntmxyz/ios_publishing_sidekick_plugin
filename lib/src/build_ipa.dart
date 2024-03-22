@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dcli/dcli.dart';
 import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/export_options.dart';
 import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/keychain.dart';
@@ -77,22 +79,51 @@ File buildIpa({
     pbxproj.setBundleIdentifier(bundleIdentifier);
     pbxproj.setProvisioningProfileSpecifier(provisioningProfile.name);
 
-    // Archive app
-    startFromArgs(
-      'xcodebuild',
-      [
-        'archive',
-        ...['-workspace', project.root.file('ios/Runner.xcworkspace').path],
-        ...['-scheme', 'Runner'],
-        ...['-sdk', 'iphoneos'],
-        ...['-configuration', 'Release'],
-        ...['-archivePath', archive.path],
-        'CODE_SIGN_STYLE=Manual',
-        'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
-        'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
-      ],
-      workingDirectory: project.root.absolute.path,
-    );
+    Future<void> xcodeBuildArchive() async {
+      final completer = Completer<void>();
+      final process = Progress.print(capture: true);
+      Timer? timer;
+      process.stream.listen((lines) {
+        timer?.cancel();
+        // xcodebuild prints a lot, being silent for a minute is not a good sign
+        timer = Timer(const Duration(seconds: 60), () {
+          completer.completeError(XcodeBuildArchiveTimeoutException());
+        });
+      });
+
+      Future.delayed(const Duration(seconds: 1)).then((_) {
+        startFromArgs(
+          'xcodebuild',
+          [
+            'archive',
+            ...['-workspace', project.root.file('ios/Runner.xcworkspace').path],
+            ...['-scheme', 'Runner'],
+            ...['-sdk', 'iphoneos'],
+            ...['-configuration', 'Release'],
+            ...['-archivePath', archive.path],
+            'CODE_SIGN_STYLE=Manual',
+            'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
+            'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
+          ],
+          workingDirectory: project.root.absolute.path,
+        );
+        completer.complete();
+      }).catchError((Object e) {
+        completer.completeError(e);
+      });
+
+      return completer.future;
+    }
+
+    try {
+      // Archive app
+      waitForEx(xcodeBuildArchive());
+    } on XcodeBuildArchiveTimeoutException catch (_) {
+      // try again, it is usually faster the second time.
+      // Hopefully fast enough to run before the keychain locks
+      keyChain.unlock();
+      waitForEx(xcodeBuildArchive());
+    }
 
     // unlock keychain again, in case the build took too long
     keyChain.unlock();
@@ -128,4 +159,8 @@ File buildIpa({
       .firstWhere((file) => file.name.endsWith('.ipa'));
 
   return ipa;
+}
+
+class XcodeBuildArchiveTimeoutException implements Exception {
+  XcodeBuildArchiveTimeoutException();
 }
