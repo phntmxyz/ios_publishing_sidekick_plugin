@@ -13,7 +13,7 @@ Future<void> main() async {
       .file('template/build_ios_command.template.dart');
   template.copySync(commandFile.path);
 
-  registerPlugin(
+  await registerPlugin(
     sidekickCli: package,
     import:
         "import 'package:${package.name}/src/commands/build_ios_command.dart';",

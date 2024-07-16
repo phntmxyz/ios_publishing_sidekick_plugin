@@ -1,19 +1,20 @@
 name: phntmxyz_ios_publishing_sidekick_plugin
 description: Generated sidekick plugin (template shared-code)
-version: 0.2.2
+version: 0.3.0-preview.1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
-  dcli: ^2.2.0
+  dcli: ^4.0.4
   deep_pick: ^1.0.0
   plist_parser: ^0.0.9
-  sidekick_core: ^2.0.0
-  sidekick_vault: ^1.0.0
+  pubspec_manager: ^1.0.0
+  sidekick_core: ^3.0.0-preview.1
+  sidekick_vault: ^1.2.0
   xml: ^6.1.0
 
 dev_dependencies:
   lint: ^2.0.0
-  sidekick_plugin_installer: ^1.1.0
+  sidekick_plugin_installer: ^1.2.0
   test: ^1.24.0

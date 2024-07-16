@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+
+- Use a new keychain when env.CI == true #9
+- Add `archiveSilenceTimeout` to `buildIpa`, defaults to 3 minutes #9
+
 ## 0.2.1
 
 - Unlock keychain after long builds before signing #6
