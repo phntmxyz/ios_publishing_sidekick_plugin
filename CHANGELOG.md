@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.3
+
+- Add certificatePassword to `buildIpa`
+- Add `ExportMethod.appStoreConnect`, deprecate `ExportMethod.appStore`
+
+## 0.2.2
+
+- add `archiveSilenceTimeout` to `buildIpa`
+
 ## 0.2.1
 
 - Unlock keychain after long builds before signing #6
