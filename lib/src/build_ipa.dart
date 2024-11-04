@@ -24,6 +24,7 @@ import 'package:sidekick_core/sidekick_core.dart';
 /// a [XcodeBuildArchiveTimeoutException] is thrown.
 File buildIpa({
   required File certificate,
+  String? certificatePassword,
   required ProvisioningProfile provisioningProfile,
   required ExportMethod method,
   required String bundleIdentifier,
@@ -39,7 +40,8 @@ File buildIpa({
   final project = package ?? mainProject!;
 
   installProvisioningProfile(provisioningProfile);
-  final certificateInfo = readP12CertificateInfo(certificate);
+  final certificateInfo =
+      readP12CertificateInfo(certificate, password: certificatePassword);
 
   final keyChain = () {
     final bool isCi = env['CI'] == 'true';
@@ -50,7 +52,7 @@ File buildIpa({
     }
     return Keychain.login();
   }();
-  keyChain.addPkcs12Certificate(certificate);
+  keyChain.addPkcs12Certificate(certificate, password: certificatePassword);
   keyChain.unlock();
 
   print('Building the ${project.name} iOS app using:');

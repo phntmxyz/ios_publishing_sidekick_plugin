@@ -2,8 +2,11 @@ import 'dart:io';
 
 import 'package:dcli/dcli.dart';
 
-P12CertificateInfo readP12CertificateInfo(File certificate) {
-  final certInfo = _opensslPkcs12(certificate);
+P12CertificateInfo readP12CertificateInfo(
+  File certificate, {
+  String? password,
+}) {
+  final certInfo = _opensslPkcs12(certificate, password: password);
 
   final friendlyNameRegEx = RegExp('friendlyName: (.*)');
   final friendlyName = friendlyNameRegEx.firstMatch(certInfo)?.group(1);
@@ -15,9 +18,9 @@ P12CertificateInfo readP12CertificateInfo(File certificate) {
   );
 }
 
-String _opensslPkcs12(File certificate) {
+String _opensslPkcs12(File certificate, {String? password}) {
   final command =
-      'openssl pkcs12 -info -in ${certificate.absolute.path} -clcerts -nokeys -passin pass:';
+      'openssl pkcs12 -info -in ${certificate.absolute.path} -clcerts -nokeys -passin pass:${password ?? ''}';
 
   final normalProgress = Progress.capture();
   try {
