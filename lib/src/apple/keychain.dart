@@ -91,11 +91,11 @@ class Keychain {
       '-A', // Allow any application to access the imported key without warning (insecure, not recommended!)
       ...[
         '-t', // Type = pub|priv|session|cert|agg
-        'agg' // agg is one of the aggregate types (pkcs12 and PEM sequence)
+        'agg', // agg is one of the aggregate types (pkcs12 and PEM sequence)
       ],
       if (password != null) ...[
         '-P', // Specify wrapping passphrase immediately (default is secure passphrase via GUI)
-        password
+        password,
       ],
       if (file != null) ...[
         '-k', // Target keychain to import into

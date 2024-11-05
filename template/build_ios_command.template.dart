@@ -59,7 +59,7 @@ class BuildIosCommand extends Command {
       bundleIdentifier: 'com.example.app',
       provisioningProfile: provisioningProfile,
       certificate: certificate,
-      method: ExportMethod.appStore,
+      method: ExportMethod.appStoreConnect,
       newKeychain: env['CI'] == 'true',
     );
 
