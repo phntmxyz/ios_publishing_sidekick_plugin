@@ -179,6 +179,7 @@ Future<void> _xcodeBuildArchive({
     'CODE_SIGN_STYLE=Manual',
     'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
     'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
+    'DEVELOPMENT_TEAM=${provisioningProfile.teamIdentifier}',
   ];
 
   print("xcodebuild ${args.join(' ')}");
