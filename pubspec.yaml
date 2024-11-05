@@ -1,6 +1,6 @@
 name: phntmxyz_ios_publishing_sidekick_plugin
 description: Generated sidekick plugin (template shared-code)
-version: 0.2.3
+version: 0.2.4
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

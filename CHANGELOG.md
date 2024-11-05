@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4
+
+- Always set the `DEVELOPMENT_TEAM`
+- New: `XcodePbxproj` methods: `setCodeSignStyle` and `setDevelopmentTeam`
+
 ## 0.2.3
 
 - Add certificatePassword to `buildIpa`
