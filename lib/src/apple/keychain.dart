@@ -133,25 +133,38 @@ class Keychain {
         '-t', // Type = pub|priv|session|cert|agg
         'agg', // agg is one of the aggregate types (pkcs12 and PEM sequence)
       ],
-      if (password != null) ...[
-        '-P', // Specify wrapping passphrase immediately (default is secure passphrase via GUI)
-        password,
-      ],
+      // Always include -P flag, even with empty password
+      // This prevents security from prompting for password via GUI
+      '-P',
+      password ?? '',
       if (file != null) ...[
         '-k', // Target keychain to import into
         file!.absolute.path,
       ],
     ];
 
-    print('📋 Running security command with args: ${args.join(' ')}');
-    print('📋 Full command: security ${args.join(' ')}');
+    print('📋 Running security command with args: ${args.where((arg) => arg != password).join(' ')} -P "***"');
+    print('📋 Full command (redacted password): security ${args.where((arg) => arg != password).join(' ')} -P "***"');
 
     try {
-      print('📋 Starting security import...');
+      print('📋 Starting security import at ${DateTime.now()}...');
+
+      // Ensure the certificate is properly formatted and valid
+      if (!certificate.existsSync()) {
+        throw 'Certificate file does not exist: ${certificate.absolute.path}';
+      }
+
       startFromArgs('security', args);
-      print('✅ Added certificate ${certificate.absolute.path} to keychain successfully');
+      print('✅ Added certificate ${certificate.absolute.path} to keychain successfully at ${DateTime.now()}');
     } catch (e) {
       print('❌ Failed to add certificate: $e');
+
+      print('⚠️ The security import command failed. Common causes:');
+      print('  - The certificate requires a password but none was provided');
+      print('  - The provided password is incorrect');
+      print('  - The keychain is locked or not found');
+      print('  - The security command is waiting for GUI input');
+      print('  - The P12 file is corrupt or not a valid certificate');
       rethrow;
     }
     print('📋 addPkcs12Certificate completed');
