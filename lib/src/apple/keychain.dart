@@ -53,22 +53,48 @@ class Keychain {
   /// Following: https://docs.github.com/en/actions/deployment/deploying-xcode-applications/installing-an-apple-certificate-on-macos-runners-for-xcode-development
   void unlock() {
     final file = this.file;
+    print('📋 Unlock keychain called');
+    print('📋 File: ${file?.absolute.path ?? 'login'}');
+    print('📋 Password length: ${(_password?.length ?? 0) > 0 ? '${_password!.length} chars' : 'empty'}');
+
     if (file == null) {
-      print('Unlocking keychain "login"');
-      start('security unlock-keychain -p "${_password ?? ''}"');
-      print('Unlocked keychain "login"');
+      print('📋 Unlocking keychain "login"');
+      try {
+        print('📋 Running: security unlock-keychain -p "***"');
+        start('security unlock-keychain -p "${_password ?? ''}"');
+        print('✅ Unlocked keychain "login" successfully');
+      } catch (e) {
+        print('❌ Failed to unlock login keychain: $e');
+        rethrow;
+      }
     } else {
-      print('Unlocking keychain ${file.absolute.path}');
+      print('📋 Unlocking keychain ${file.absolute.path}');
       // prevent the keychain from locking after 5min
-      start(
-        'security set-keychain-settings -lut ${const Duration(hours: 2).inSeconds} ${file.absolute.path}',
-      );
-      print('Set keychain ${file.absolute.path} to unlock after 2h');
-      start(
-        'security unlock-keychain -p "${_password ?? ''}" ${file.absolute.path}',
-      );
-      print('Unlocked keychain "$name" at ${file.absolute.path}');
+      try {
+        final unlockSeconds = const Duration(hours: 2).inSeconds;
+        print('📋 Setting keychain timeout to $unlockSeconds seconds');
+        print('📋 Running: security set-keychain-settings -lut $unlockSeconds ${file.absolute.path}');
+        start(
+          'security set-keychain-settings -lut ${const Duration(hours: 2).inSeconds} ${file.absolute.path}',
+        );
+        print('✅ Set keychain ${file.absolute.path} to unlock after 2h');
+      } catch (e) {
+        print('❌ Failed to set keychain settings: $e');
+        rethrow;
+      }
+
+      try {
+        print('📋 Running: security unlock-keychain -p "***" ${file.absolute.path}');
+        start(
+          'security unlock-keychain -p "${_password ?? ''}" ${file.absolute.path}',
+        );
+        print('✅ Unlocked keychain "$name" at ${file.absolute.path}');
+      } catch (e) {
+        print('❌ Failed to unlock keychain: $e');
+        rethrow;
+      }
     }
+    print('📋 Unlock keychain completed');
   }
 
   /// Sets this keychain as default so that Xcode will use it
@@ -91,8 +117,15 @@ class Keychain {
   }
 
   void addPkcs12Certificate(File certificate, {String? password = ''}) {
-    print('addPkcs12Certificate $certificate');
-    startFromArgs('security', [
+    print('📋 addPkcs12Certificate called');
+    print('📋 Certificate path: ${certificate.absolute.path}');
+    print('📋 Certificate exists: ${certificate.existsSync()}');
+    print('📋 Certificate size: ${certificate.existsSync() ? '${certificate.lengthSync()} bytes' : 'N/A'}');
+    print(
+        '📋 Password provided: ${password != null ? 'yes' : 'no'} (${password?.isEmpty ?? true ? 'empty' : 'non-empty'})');
+    print('📋 Target keychain: ${file?.absolute.path ?? 'login (default)'}');
+
+    final args = [
       'import', //  import inputfile [-k keychain] [-t type] [-f format] [-w] [-P passphrase] [options...]
       certificate.absolute.path,
       '-A', // Allow any application to access the imported key without warning (insecure, not recommended!)
@@ -108,7 +141,19 @@ class Keychain {
         '-k', // Target keychain to import into
         file!.absolute.path,
       ],
-    ]);
-    print('Added certificate ${certificate.absolute.path} to keychain');
+    ];
+
+    print('📋 Running security command with args: ${args.join(' ')}');
+    print('📋 Full command: security ${args.join(' ')}');
+
+    try {
+      print('📋 Starting security import...');
+      startFromArgs('security', args);
+      print('✅ Added certificate ${certificate.absolute.path} to keychain successfully');
+    } catch (e) {
+      print('❌ Failed to add certificate: $e');
+      rethrow;
+    }
+    print('📋 addPkcs12Certificate completed');
   }
 }
