@@ -52,8 +52,8 @@ File buildIpa({
     }
     return Keychain.login();
   }();
-  keyChain.addPkcs12Certificate(certificate, password: certificatePassword);
   keyChain.unlock();
+  keyChain.addPkcs12Certificate(certificate, password: certificatePassword);
 
   print('Building the ${project.name} iOS app using:');
   print('signingCertificate: ${certificateInfo.friendlyName}');
