@@ -54,13 +54,16 @@ class Keychain {
   void unlock() {
     final file = this.file;
     if (file == null) {
+      print('Unlocking keychain "login"');
       start('security unlock-keychain -p "${_password ?? ''}"');
       print('Unlocked keychain "login"');
     } else {
+      print('Unlocking keychain ${file.absolute.path}');
       // prevent the keychain from locking after 5min
       start(
         'security set-keychain-settings -lut ${const Duration(hours: 2).inSeconds} ${file.absolute.path}',
       );
+      print('Set keychain ${file.absolute.path} to unlock after 2h');
       start(
         'security unlock-keychain -p "${_password ?? ''}" ${file.absolute.path}',
       );
@@ -76,15 +79,19 @@ class Keychain {
       throw 'login keychain cannot be set as default, because the location is unknown';
     }
     assert(file.extension == '.keychain');
+    print('Setting keychain ${file.absolute.path} as default');
 
     // make sure Xcode uses this keychain
     // Set the search list to the specified keychains
     start('security list-keychains -s ${file.absolute.path}');
     //  Set the default keychain to the specified keychain
     start('security default-keychain -s ${file.absolute.path}');
+
+    print('Set keychain ${file.absolute.path} as default');
   }
 
   void addPkcs12Certificate(File certificate, {String? password = ''}) {
+    print('addPkcs12Certificate $certificate');
     startFromArgs('security', [
       'import', //  import inputfile [-k keychain] [-t type] [-f format] [-w] [-P passphrase] [options...]
       certificate.absolute.path,
@@ -102,5 +109,6 @@ class Keychain {
         file!.absolute.path,
       ],
     ]);
+    print('Added certificate ${certificate.absolute.path} to keychain');
   }
 }
