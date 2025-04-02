@@ -1,4 +1,4 @@
-import 'package:dcli/dcli.dart';
+import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/util/start_timeout.dart';
 import 'package:sidekick_core/sidekick_core.dart';
 
 /// Represents the keychain on macos
@@ -42,7 +42,7 @@ class Keychain {
       }
       File(where).deleteSync();
     }
-    start('security create-keychain -p "${_password ?? ''}" $where');
+    startWithTimeout('security create-keychain -p "${_password ?? ''}" $where');
     print("Created keychain $where");
   }
 
@@ -53,48 +53,46 @@ class Keychain {
   /// Following: https://docs.github.com/en/actions/deployment/deploying-xcode-applications/installing-an-apple-certificate-on-macos-runners-for-xcode-development
   void unlock() {
     final file = this.file;
-    print('📋 Unlock keychain called');
-    print('📋 File: ${file?.absolute.path ?? 'login'}');
-    print('📋 Password length: ${(_password?.length ?? 0) > 0 ? '${_password!.length} chars' : 'empty'}');
+    print('Unlock keychain called');
+    print('File: ${file?.absolute.path ?? 'login'}');
 
     if (file == null) {
-      print('📋 Unlocking keychain "login"');
+      print('Unlocking keychain "login"');
       try {
-        print('📋 Running: security unlock-keychain -p "***"');
-        start('security unlock-keychain -p "${_password ?? ''}"');
-        print('✅ Unlocked keychain "login" successfully');
+        print('Running: security unlock-keychain');
+        startWithTimeout('security unlock-keychain -p "${_password ?? ''}"');
+        print('Unlocked keychain "login" successfully');
       } catch (e) {
-        print('❌ Failed to unlock login keychain: $e');
+        print('Failed to unlock login keychain: $e');
         rethrow;
       }
     } else {
-      print('📋 Unlocking keychain ${file.absolute.path}');
+      print('Unlocking keychain ${file.absolute.path}');
       // prevent the keychain from locking after 5min
       try {
         final unlockSeconds = const Duration(hours: 2).inSeconds;
-        print('📋 Setting keychain timeout to $unlockSeconds seconds');
-        print('📋 Running: security set-keychain-settings -lut $unlockSeconds ${file.absolute.path}');
-        start(
+        print('Setting keychain timeout to $unlockSeconds seconds');
+        startWithTimeout(
           'security set-keychain-settings -lut ${const Duration(hours: 2).inSeconds} ${file.absolute.path}',
         );
-        print('✅ Set keychain ${file.absolute.path} to unlock after 2h');
+        print('Set keychain ${file.absolute.path} to unlock after 2h');
       } catch (e) {
-        print('❌ Failed to set keychain settings: $e');
+        print('Failed to set keychain settings: $e');
         rethrow;
       }
 
       try {
-        print('📋 Running: security unlock-keychain -p "***" ${file.absolute.path}');
-        start(
+        print('Running: security unlock-keychain');
+        startWithTimeout(
           'security unlock-keychain -p "${_password ?? ''}" ${file.absolute.path}',
         );
-        print('✅ Unlocked keychain "$name" at ${file.absolute.path}');
+        print('Unlocked keychain "$name" at ${file.absolute.path}');
       } catch (e) {
-        print('❌ Failed to unlock keychain: $e');
+        print('Failed to unlock keychain: $e');
         rethrow;
       }
     }
-    print('📋 Unlock keychain completed');
+    print('Unlock keychain completed');
   }
 
   /// Sets this keychain as default so that Xcode will use it
@@ -109,23 +107,30 @@ class Keychain {
 
     // make sure Xcode uses this keychain
     // Set the search list to the specified keychains
-    start('security list-keychains -s ${file.absolute.path}');
+    startWithTimeout('security list-keychains -s ${file.absolute.path}');
     //  Set the default keychain to the specified keychain
-    start('security default-keychain -s ${file.absolute.path}');
+    startWithTimeout('security default-keychain -s ${file.absolute.path}');
 
     print('Set keychain ${file.absolute.path} as default');
   }
 
   void addPkcs12Certificate(File certificate, {String? password = ''}) {
-    print('📋 addPkcs12Certificate called');
-    print('📋 Certificate path: ${certificate.absolute.path}');
-    print('📋 Certificate exists: ${certificate.existsSync()}');
-    print('📋 Certificate size: ${certificate.existsSync() ? '${certificate.lengthSync()} bytes' : 'N/A'}');
-    print(
-        '📋 Password provided: ${password != null ? 'yes' : 'no'} (${password?.isEmpty ?? true ? 'empty' : 'non-empty'})');
-    print('📋 Target keychain: ${file?.absolute.path ?? 'login (default)'}');
+    print('Adding certificate: ${certificate.absolute.path}');
+    print('Target keychain: ${file?.absolute.path ?? 'login (default)'}');
 
-    final args = [
+    // Log whether a password is being used
+    final hasPassword = password != null && password.isNotEmpty;
+    print(
+      'Using certificate password: ${hasPassword ? 'yes' : 'no (empty password)'}',
+    );
+
+    // Ensure the certificate is properly formatted and valid
+    if (!certificate.existsSync()) {
+      throw 'Certificate file does not exist: ${certificate.absolute.path}';
+    }
+
+    // Build the security command arguments
+    final securityArgs = [
       'import', //  import inputfile [-k keychain] [-t type] [-f format] [-w] [-P passphrase] [options...]
       certificate.absolute.path,
       '-A', // Allow any application to access the imported key without warning (insecure, not recommended!)
@@ -143,30 +148,18 @@ class Keychain {
       ],
     ];
 
-    print('📋 Running security command with args: ${args.where((arg) => arg != password).join(' ')} -P "***"');
-    print('📋 Full command (redacted password): security ${args.where((arg) => arg != password).join(' ')} -P "***"');
-
     try {
-      print('📋 Starting security import at ${DateTime.now()}...');
+      // Use our custom wrapper with timeout functionality if timeout is provided
+      final result = startFromArgsWithTimeout('security', securityArgs);
 
-      // Ensure the certificate is properly formatted and valid
-      if (!certificate.existsSync()) {
-        throw 'Certificate file does not exist: ${certificate.absolute.path}';
+      if (result.exitCode != 0) {
+        throw 'Security import failed with exit code ${result.exitCode}';
       }
-
-      startFromArgs('security', args);
-      print('✅ Added certificate ${certificate.absolute.path} to keychain successfully at ${DateTime.now()}');
+      print('Added certificate to keychain successfully');
     } catch (e) {
-      print('❌ Failed to add certificate: $e');
-
-      print('⚠️ The security import command failed. Common causes:');
-      print('  - The certificate requires a password but none was provided');
-      print('  - The provided password is incorrect');
-      print('  - The keychain is locked or not found');
-      print('  - The security command is waiting for GUI input');
-      print('  - The P12 file is corrupt or not a valid certificate');
+      print('Failed to add certificate: $e');
       rethrow;
     }
-    print('📋 addPkcs12Certificate completed');
+    print('Certificate import completed');
   }
 }
