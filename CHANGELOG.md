@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.5
+- Unlock keychain before importing the certificate
+
 ## 0.2.4
 
 - Always set the `DEVELOPMENT_TEAM`
