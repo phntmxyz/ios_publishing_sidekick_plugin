@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+- Deprecate `ExportMethod.adHoc` in favor of new `ExportMethod.releaseTesting`
+- Add timeout to keychain commands (default 60s)
+- Always add -P "" (no password) when importing certificates into the keychain. This prevents a password prompt (hang on CI)
+- More keychain logging in case of an error
+
 ## 0.2.5
 - Unlock keychain before importing the certificate
 
