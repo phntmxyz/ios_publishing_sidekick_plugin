@@ -1,11 +1,13 @@
 import 'package:dcli/dcli.dart';
+import 'package:sidekick_core/sidekick_core.dart';
 
 /// A wrapper around startFromArgs that adds timeout functionality
 ///
-/// Uses the Unix timeout command to prevent commands from hanging indefinitely.
-/// Returns the same Progress object that regular startFromArgs would return.
+/// Uses timeout command (or gtimeout on macOS) to prevent commands
+/// from hanging indefinitely.
 ///
 /// If [timeout] is null, calls startFromArgs directly without timeout.
+/// Throws [CommandTimeoutException] if no timeout command is available.
 Progress startFromArgsWithTimeout(
   String command,
   List<String> args, {
@@ -19,21 +21,25 @@ Progress startFromArgsWithTimeout(
   bool extensionSearch = true,
   Duration? timeout = const Duration(seconds: 60),
 }) {
-  final String effectiveCommand;
-  final List<String> effectiveArgs;
-
   if (timeout == null) {
-    effectiveCommand = command;
-    effectiveArgs = args;
-    print('Running command: $command ${args.join(' ')}');
-  } else {
-    effectiveCommand = 'timeout';
-    effectiveArgs = ['${timeout.inSeconds}', command, ...args];
-    print('Running command with timeout: $command ${args.join(' ')}');
-    print('Timeout set to ${timeout.inSeconds} seconds');
+    return startFromArgs(
+      command,
+      args,
+      progress: progress,
+      runInShell: runInShell,
+      detached: detached,
+      terminal: terminal,
+      privileged: privileged,
+      nothrow: nothrow,
+      workingDirectory: workingDirectory,
+      extensionSearch: extensionSearch,
+    );
   }
 
-  // Call startFromArgs only once
+  final timeoutCmd = _getTimeoutCommand(timeout);
+  final effectiveCommand = timeoutCmd[0];
+  final effectiveArgs = [...timeoutCmd.sublist(1), command, ...args];
+
   final result = startFromArgs(
     effectiveCommand,
     effectiveArgs,
@@ -47,9 +53,10 @@ Progress startFromArgsWithTimeout(
     extensionSearch: extensionSearch,
   );
 
-  // Check if the command timed out (exit code 124), but only if using timeout
-  if (timeout != null && result.exitCode == 124 && !nothrow) {
-    throw 'Command timed out after ${timeout.inSeconds} seconds: $command ${args.join(' ')}';
+  if (result.exitCode == 124 && !nothrow) {
+    throw CommandTimeoutException(
+      'Command timed out after ${timeout.inSeconds} seconds: $command ${args.join(' ')}',
+    );
   }
 
   return result;
@@ -58,9 +65,9 @@ Progress startFromArgsWithTimeout(
 /// A wrapper around start that adds timeout functionality
 ///
 /// Uses the Unix timeout command to prevent commands from hanging indefinitely.
-/// Returns the same Progress object that regular start would return.
 ///
 /// If [timeout] is null, calls start directly without timeout.
+/// Throws [CommandTimeoutException] if no timeout command is available.
 Progress startWithTimeout(
   String commandLine, {
   Progress? progress,
@@ -71,20 +78,25 @@ Progress startWithTimeout(
   bool privileged = false,
   String? workingDirectory,
   bool extensionSearch = true,
-  Duration? timeout,
+  Duration? timeout = const Duration(seconds: 60),
 }) {
-  final String effectiveCommand;
-
   if (timeout == null) {
-    effectiveCommand = commandLine;
-    print('Running command: $commandLine');
-  } else {
-    effectiveCommand = 'timeout ${timeout.inSeconds} $commandLine';
-    print('Running command with timeout: $commandLine');
-    print('Timeout set to ${timeout.inSeconds} seconds');
+    return start(
+      commandLine,
+      progress: progress,
+      runInShell: runInShell,
+      detached: detached,
+      terminal: terminal,
+      privileged: privileged,
+      nothrow: nothrow,
+      workingDirectory: workingDirectory,
+      extensionSearch: extensionSearch,
+    );
   }
 
-  // Call start only once
+  final timeoutCmd = _getTimeoutCommand(timeout);
+  final effectiveCommand = '${timeoutCmd.join(' ')} $commandLine';
+
   final result = start(
     effectiveCommand,
     progress: progress,
@@ -97,10 +109,59 @@ Progress startWithTimeout(
     extensionSearch: extensionSearch,
   );
 
-  // Check if the command timed out (exit code 124), but only if using timeout
-  if (timeout != null && result.exitCode == 124 && !nothrow) {
-    throw 'Command timed out after ${timeout.inSeconds} seconds: $commandLine';
+  if (result.exitCode == 124 && !nothrow) {
+    throw CommandTimeoutException(
+      'Command timed out after ${timeout.inSeconds} seconds: $commandLine',
+    );
   }
 
   return result;
+}
+
+/// Exception thrown when a command times out
+class CommandTimeoutException implements Exception {
+  final String message;
+
+  CommandTimeoutException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// Returns a timeout command as a list of strings
+///
+/// Checks for availability of timeout commands and returns the appropriate
+/// command with the timeout value in seconds.
+///
+/// If no timeout command is available, attempts to install coreutils.
+///
+/// Throws a [CommandTimeoutException] if no timeout command could be found.
+List<String> _getTimeoutCommand(Duration timeout) {
+  // Check for gtimeout first (macOS with homebrew)
+  if (isProgramInstalled('gtimeout')) {
+    return ['gtimeout', '${timeout.inSeconds}'];
+  }
+
+  // Check for standard timeout
+  if (isProgramInstalled('timeout')) {
+    return ['timeout', '${timeout.inSeconds}'];
+  }
+
+  print('No timeout command found. Attempting to install GNU coreutils...');
+
+  final installProgress = Progress.printStdErr();
+  start(
+    'brew install coreutils',
+    progress: installProgress,
+    nothrow: true,
+  );
+
+  if (installProgress.exitCode == 0 && isProgramInstalled('gtimeout')) {
+    print('Successfully installed coreutils, using gtimeout');
+    return ['gtimeout', '${timeout.inSeconds}'];
+  }
+
+  throw CommandTimeoutException(
+    'Could not install coreutils. No timeout command available.',
+  );
 }
