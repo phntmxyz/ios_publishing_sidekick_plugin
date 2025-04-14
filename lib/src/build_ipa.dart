@@ -126,7 +126,7 @@ Future<File> buildIpa({
   } finally {
     // Clean up
     if (newKeychain == true) {
-      keyChain.file?.delete();
+      await keyChain.file?.delete();
     }
     if (revertLocalChanges) {
       try {
@@ -196,7 +196,7 @@ Future<void> _xcodeBuildArchive({
     printerr(line);
     restartTimeoutTimer();
   });
-  process.exitCode.then((exitCode) {
+  await process.exitCode.then((exitCode) {
     if (exitCode == 0) {
       timeoutTimer?.cancel();
       completer.complete();

@@ -27,7 +27,7 @@ class BuildIosCommand extends Command {
     }
 
     // Load iOS dependencies and build dart source
-    flutter(
+    await flutter(
       [
         'build',
         'ios',
