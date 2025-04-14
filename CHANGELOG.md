@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+- Update minimum Dart SDK to 3.5.0
+- Update Sidekick Core to 3.0.0-preview.5
+- Update dcli to 7.0.2
+
 ## 0.3.0
 - Deprecate `ExportMethod.adHoc` in favor of new `ExportMethod.releaseTesting`
 - Add timeout to keychain commands (default 60s)

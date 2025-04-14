@@ -22,7 +22,7 @@ import 'package:sidekick_core/sidekick_core.dart';
 /// `xcodebuild archive` process not outputting anything to stdout or stderr.
 /// When it stops outputting (because it waits for a password input in the UI),
 /// a [XcodeBuildArchiveTimeoutException] is thrown.
-File buildIpa({
+Future<File> buildIpa({
   required File certificate,
   String? certificatePassword,
   required ProvisioningProfile provisioningProfile,
@@ -31,7 +31,7 @@ File buildIpa({
   bool? newKeychain,
   DartPackage? package,
   Duration archiveSilenceTimeout = const Duration(minutes: 3),
-}) {
+}) async {
   if (bundleIdentifier.contains('_')) {
     throw 'Bundle identifier must not contain underscores\n'
         'See https://developer.apple.com/documentation/bundleresources/information_property_list/cfbundleidentifier';
@@ -94,14 +94,12 @@ File buildIpa({
 
     // Archive
     try {
-      waitForEx(
-        _xcodeBuildArchive(
-          xcodeWorkspace: project.root.file('ios/Runner.xcworkspace'),
-          archiveOutput: archive,
-          provisioningProfile: provisioningProfile,
-          certificateInfo: certificateInfo,
-          silenceTimeout: archiveSilenceTimeout,
-        ),
+      await _xcodeBuildArchive(
+        xcodeWorkspace: project.root.file('ios/Runner.xcworkspace'),
+        archiveOutput: archive,
+        provisioningProfile: provisioningProfile,
+        certificateInfo: certificateInfo,
+        silenceTimeout: archiveSilenceTimeout,
       );
     } on XcodeBuildArchiveTimeoutException catch (_) {
       print(red('Xcode build archive stopped responding, trying again.'));

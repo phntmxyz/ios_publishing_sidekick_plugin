@@ -1,4 +1,5 @@
 import 'package:phntmxyz_ios_publishing_sidekick_plugin/phntmxyz_ios_publishing_sidekick_plugin.dart';
+import 'package:pubspec_manager/pubspec_manager.dart';
 import 'package:sidekick_core/sidekick_core.dart';
 
 class BuildIosCommand extends Command {
@@ -54,7 +55,7 @@ class BuildIosCommand extends Command {
     // final certificate = vault.loadFile('ios_distribution_certificate.p12.gpg');
 
     // Build the ipa with manual signing
-    final ipa = buildIpa(
+    final ipa = await buildIpa(
       // TODO set your bundle identifier
       bundleIdentifier: 'com.example.app',
       provisioningProfile: provisioningProfile,
@@ -69,7 +70,7 @@ class BuildIosCommand extends Command {
   /// Place the ipa properly named in the /build/release directory
   File _copyIpaToReleaseDir(File ipaFile) {
     final File versionFile = mainProject!.pubspec;
-    final pubSpec = PubSpec.fromFile(versionFile.absolute.path);
+    final pubSpec = PubSpec.loadFromPath(versionFile.absolute.path);
     final version = pubSpec.version;
     _releaseDir.createSync(recursive: true);
     final releaseIpa = _releaseDir.file('${pubSpec.name}-$version.ipa');
