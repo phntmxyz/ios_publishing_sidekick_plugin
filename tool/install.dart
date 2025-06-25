@@ -4,8 +4,8 @@ import 'package:sidekick_plugin_installer/sidekick_plugin_installer.dart';
 
 Future<void> main() async {
   final SidekickPackage package = PluginContext.sidekickPackage;
-  addSelfAsDependency();
-  pubGet(package);
+  await addSelfAsDependency();
+  await pubGet(package);
 
   final commandFile =
       package.root.file('lib/src/commands/build_ios_command.dart');
