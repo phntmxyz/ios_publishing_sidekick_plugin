@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0
+- `buildIpa()` is now async
+- Update to sidekick_core 3.0.0
+
 ## 0.5.0
 - Add missing awaits
 
