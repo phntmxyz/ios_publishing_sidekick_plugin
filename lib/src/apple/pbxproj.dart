@@ -84,76 +84,77 @@ class XcodePbxproj {
     setBundleIdentifier(bundleIdentifier);
   }
 
-  /// Sets Bundle ID for ShareExtension target only  
+  /// Sets Bundle ID for ShareExtension target only
   void setShareExtensionBundleIdentifier(String bundleIdentifier) {
     file.verifyExistsOrThrow();
-    
+
     print('Setting ShareExtension Bundle ID to "$bundleIdentifier"');
     final content = file.readAsStringSync();
-    
+
     // Find and replace any Bundle ID that ends with .ShareExtension
     final updated = content.replaceAllMapped(
-      RegExp(r'(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*\.ShareExtension;'),
-      (match) => '${match.group(1)}$bundleIdentifier;'
-    );
-    
+        RegExp(r'(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*\.ShareExtension;'),
+        (match) => '${match.group(1)}$bundleIdentifier;');
+
     file.writeAsStringSync(updated);
   }
 
   /// Sets Provisioning Profile for Main App (Runner) target only
   void setMainAppProvisioningProfile(String provisioningProfileName) {
     file.verifyExistsOrThrow();
-    
-    print('Setting Main App Provisioning Profile to "$provisioningProfileName"');
+
+    print(
+        'Setting Main App Provisioning Profile to "$provisioningProfileName"');
     final content = file.readAsStringSync();
-    
+
     // Target Runner target specifically
     final runnerTargetRegex = RegExp(
       r'(\/\* Begin XCBuildConfiguration section \*\/.*?name = Runner;.*?buildSettings = \{.*?)(PROVISIONING_PROFILE_SPECIFIER = [^;]*;)',
       dotAll: true,
     );
-    
+
     final match = runnerTargetRegex.firstMatch(content);
     if (match == null) {
       throw "Could not find Runner target PROVISIONING_PROFILE_SPECIFIER in project.pbxproj";
     }
-    
+
     final updated = content.replaceAllMapped(runnerTargetRegex, (match) {
       return '${match.group(1)}PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";';
     });
-    
+
     file.writeAsStringSync(updated);
   }
 
   /// Sets Provisioning Profile for ShareExtension target only
   void setShareExtensionProvisioningProfile(String provisioningProfileName) {
     file.verifyExistsOrThrow();
-    
-    print('Setting ShareExtension Provisioning Profile to "$provisioningProfileName"');
+
+    print(
+        'Setting ShareExtension Provisioning Profile to "$provisioningProfileName"');
     final content = file.readAsStringSync();
-    
+
     // Target ShareExtension target specifically
     final shareExtTargetRegex = RegExp(
       r'(\/\* Begin XCBuildConfiguration section \*\/.*?name = ShareExtension;.*?buildSettings = \{.*?)(PROVISIONING_PROFILE_SPECIFIER = [^;]*;)',
       dotAll: true,
     );
-    
+
     final match = shareExtTargetRegex.firstMatch(content);
     if (match == null) {
       throw "Could not find ShareExtension target PROVISIONING_PROFILE_SPECIFIER in project.pbxproj";
     }
-    
+
     final updated = content.replaceAllMapped(shareExtTargetRegex, (match) {
       return '${match.group(1)}PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";';
     });
-    
+
     file.writeAsStringSync(updated);
   }
 
   /// Sets App Group for all targets
   void setAppGroup(String appGroupId) {
     file.verifyExistsOrThrow();
-    
+
     print('Setting App Group to "$appGroupId"');
     final content = file.readAsStringSync();
     final appGroupRegex = RegExp('RECEIVE_SHARE_INTENT_GROUP_ID = [^;]*;');
@@ -171,24 +172,23 @@ class XcodePbxproj {
   /// Sets Bundle ID for Runner target only (more precise than setBundleIdentifier)
   void setRunnerBundleIdentifier(String bundleIdentifier) {
     file.verifyExistsOrThrow();
-    
+
     print('Setting Runner Bundle ID to "$bundleIdentifier"');
     final content = file.readAsStringSync();
-    
+
     // Target Runner configurations specifically
     final updated = content.replaceAllMapped(
-      RegExp(r'(name = (?:Debug|Release|Profile);.*?buildSettings = \{.*?)(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*;',
-            dotAll: true),
-      (match) {
-        final section = match.group(0)!;
-        // Only replace if this is a Runner section (not ShareExtension)
-        if (section.contains('ShareExtension')) {
-          return match.group(0)!; // Don't change ShareExtension
-        }
-        return '${match.group(1)}${match.group(2)}$bundleIdentifier;';
+        RegExp(
+            r'(name = (?:Debug|Release|Profile);.*?buildSettings = \{.*?)(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*;',
+            dotAll: true), (match) {
+      final section = match.group(0)!;
+      // Only replace if this is a Runner section (not ShareExtension)
+      if (section.contains('ShareExtension')) {
+        return match.group(0)!; // Don't change ShareExtension
       }
-    );
-    
+      return '${match.group(1)}${match.group(2)}$bundleIdentifier;';
+    });
+
     file.writeAsStringSync(updated);
   }
 
@@ -199,26 +199,27 @@ class XcodePbxproj {
     String? provisioningProfile,
   }) {
     file.verifyExistsOrThrow();
-    
-    print('Configuring ShareExtension with Bundle ID "$bundleIdentifier" and App Group "$appGroup"');
+
+    print(
+        'Configuring ShareExtension with Bundle ID "$bundleIdentifier" and App Group "$appGroup"');
     final content = file.readAsStringSync();
     final lines = content.split('\n');
-    
+
     bool inShareExtensionSection = false;
     bool inBuildSettings = false;
     int braceDepth = 0;
-    
+
     for (int i = 0; i < lines.length; i++) {
       String line = lines[i];
-      
+
       // Detect ShareExtension section
-      if (line.contains('name = ShareExtension') || 
+      if (line.contains('name = ShareExtension') ||
           (line.contains('Debug') && inShareExtensionSection) ||
           (line.contains('Release') && inShareExtensionSection) ||
           (line.contains('Profile') && inShareExtensionSection)) {
         inShareExtensionSection = true;
       }
-      
+
       // Track buildSettings sections
       if (line.contains('buildSettings = {') && inShareExtensionSection) {
         inBuildSettings = true;
@@ -233,36 +234,32 @@ class XcodePbxproj {
           }
         }
       }
-      
+
       // Update settings within ShareExtension buildSettings
       if (inBuildSettings && inShareExtensionSection) {
         if (line.contains('PRODUCT_BUNDLE_IDENTIFIER')) {
           lines[i] = line.replaceAll(
-            RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
-            'PRODUCT_BUNDLE_IDENTIFIER = $bundleIdentifier;'
-          );
+              RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
+              'PRODUCT_BUNDLE_IDENTIFIER = $bundleIdentifier;');
         }
         if (line.contains('RECEIVE_SHARE_INTENT_GROUP_ID')) {
           lines[i] = line.replaceAll(
-            RegExp(r'RECEIVE_SHARE_INTENT_GROUP_ID = [^;]*;'),
-            'RECEIVE_SHARE_INTENT_GROUP_ID = $appGroup;'
-          );
+              RegExp(r'RECEIVE_SHARE_INTENT_GROUP_ID = [^;]*;'),
+              'RECEIVE_SHARE_INTENT_GROUP_ID = $appGroup;');
         }
-        if (provisioningProfile != null && line.contains('PROVISIONING_PROFILE_SPECIFIER')) {
+        if (provisioningProfile != null &&
+            line.contains('PROVISIONING_PROFILE_SPECIFIER')) {
           lines[i] = line.replaceAll(
-            RegExp(r'PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
-            'PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfile";'
-          );
+              RegExp(r'PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
+              'PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfile";');
         }
         if (line.contains('CODE_SIGN_STYLE')) {
           lines[i] = line.replaceAll(
-            RegExp(r'CODE_SIGN_STYLE = [^;]*;'),
-            'CODE_SIGN_STYLE = Manual;'
-          );
+              RegExp(r'CODE_SIGN_STYLE = [^;]*;'), 'CODE_SIGN_STYLE = Manual;');
         }
       }
     }
-    
+
     file.writeAsStringSync(lines.join('\n'));
   }
 }

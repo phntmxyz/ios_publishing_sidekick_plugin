@@ -74,12 +74,13 @@ Future<File> buildIpa({
   final provisioningProfilesMap = <String, String>{
     bundleIdentifier: provisioningProfile.uuid,
   };
-  
+
   // Add additional provisioning profiles (e.g., for ShareExtension)
   if (additionalProvisioningProfiles != null) {
     for (final entry in additionalProvisioningProfiles.entries) {
       provisioningProfilesMap[entry.key] = entry.value.uuid;
-      print('Adding provisioning profile: ${entry.key} -> ${entry.value.name} (${entry.value.uuid})');
+      print(
+          'Adding provisioning profile: ${entry.key} -> ${entry.value.name} (${entry.value.uuid})');
     }
   }
 
@@ -105,9 +106,12 @@ Future<File> buildIpa({
   try {
     // LETZTE CHANCE: Set target-specific Provisioning Profiles in pbxproj HIER!
     if (additionalProvisioningProfiles != null) {
-      _setTargetSpecificProvisioningProfiles(pbxproj, provisioningProfile, additionalProvisioningProfiles, targetBundleIds: targetBundleIds);
+      _setTargetSpecificProvisioningProfiles(
+          pbxproj, provisioningProfile, additionalProvisioningProfiles,
+          targetBundleIds: targetBundleIds);
     } else {
-      print('Main App will use: $bundleIdentifier with ${provisioningProfile.name}');
+      print(
+          'Main App will use: $bundleIdentifier with ${provisioningProfile.name}');
     }
 
     // Archive
@@ -167,86 +171,91 @@ Future<File> buildIpa({
 
 /// Sets target-specific provisioning profiles for Runner and ShareExtension
 void _setTargetSpecificProvisioningProfiles(
-  XcodePbxproj pbxproj, 
-  ProvisioningProfile mainProfile, 
-  Map<String, ProvisioningProfile> additionalProfiles,
-  {Map<String, String>? targetBundleIds}
-) {
-  
+    XcodePbxproj pbxproj,
+    ProvisioningProfile mainProfile,
+    Map<String, ProvisioningProfile> additionalProfiles,
+    {Map<String, String>? targetBundleIds}) {
   String content = pbxproj.file.readAsStringSync();
   final lines = content.split('\n');
-  
+
   // Set Runner provisioning profiles
   for (int i = 0; i < lines.length; i++) {
     if (!lines[i].contains('PROVISIONING_PROFILE_SPECIFIER')) continue;
-    
+
     bool isRunner = false;
     for (int j = Math.max(0, i - 10); j < Math.min(lines.length, i + 10); j++) {
-      if (lines[j].contains('name = Runner') || lines[j].contains('/* Runner */')) {
+      if (lines[j].contains('name = Runner') ||
+          lines[j].contains('/* Runner */')) {
         isRunner = true;
         break;
       }
     }
-    
+
     if (isRunner) {
       lines[i] = _replaceProvisioningProfile(lines[i], mainProfile.name);
     }
   }
-  
+
   // Add ShareExtension provisioning profiles
   for (final entry in additionalProfiles.entries) {
     if (entry.key.contains('ShareExtension')) {
-      _addShareExtensionProvisioningProfile(lines, entry.value.name, targetBundleIds: targetBundleIds);
+      _addShareExtensionProvisioningProfile(lines, entry.value.name,
+          targetBundleIds: targetBundleIds);
       break;
     }
   }
-  
+
   pbxproj.file.writeAsStringSync(lines.join('\n'));
 }
 
 /// Adds provisioning profile settings to ShareExtension build configurations
-void _addShareExtensionProvisioningProfile(List<String> lines, String profileName, {Map<String, String>? targetBundleIds}) {
-  
+void _addShareExtensionProvisioningProfile(
+    List<String> lines, String profileName,
+    {Map<String, String>? targetBundleIds}) {
   // Finde alle ShareExtension buildSettings Sectionen
   for (int i = 0; i < lines.length; i++) {
     // Suche nach ShareExtension buildSettings
     if (lines[i].contains('buildSettings = {')) {
       // Prüfe ob das eine ShareExtension Section ist
       bool isShareExtensionSection = false;
-      
+
       // Schaue 20 Zeilen vorher und nachher nach ShareExtension
-      for (int j = Math.max(0, i - 20); j < Math.min(lines.length, i + 20); j++) {
-        if (lines[j].contains('ShareExtension') && 
-            (lines[j].contains('Debug') || lines[j].contains('Release') || lines[j].contains('Profile'))) {
+      for (int j = Math.max(0, i - 20);
+          j < Math.min(lines.length, i + 20);
+          j++) {
+        if (lines[j].contains('ShareExtension') &&
+            (lines[j].contains('Debug') ||
+                lines[j].contains('Release') ||
+                lines[j].contains('Profile'))) {
           isShareExtensionSection = true;
           break;
         }
       }
-      
+
       if (isShareExtensionSection) {
         // Use the ShareExtension Bundle ID from targetBundleIds parameter
         String? shareExtensionBundleId = targetBundleIds?['ShareExtension'];
-        
+
         // 1. ERSETZE EXISTIERENDE BUNDLE IDs IN DIESER SECTION
         for (int k = i; k < lines.length; k++) {
-          if (lines[k].contains('}') && !lines[k].contains('{')) break; // Ende der Section
-          
-          if (lines[k].contains('PRODUCT_BUNDLE_IDENTIFIER') && shareExtensionBundleId != null) {
+          if (lines[k].contains('}') && !lines[k].contains('{'))
+            break; // Ende der Section
+
+          if (lines[k].contains('PRODUCT_BUNDLE_IDENTIFIER') &&
+              shareExtensionBundleId != null) {
             lines[k] = lines[k].replaceAll(
-              RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
-              'PRODUCT_BUNDLE_IDENTIFIER = $shareExtensionBundleId;'
-            );
-            print('✅ Updated ShareExtension Bundle ID at line ${k + 1}: $shareExtensionBundleId');
+                RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
+                'PRODUCT_BUNDLE_IDENTIFIER = $shareExtensionBundleId;');
+            print(
+                '✅ Updated ShareExtension Bundle ID at line ${k + 1}: $shareExtensionBundleId');
           }
-          
+
           if (lines[k].contains('CODE_SIGN_STYLE')) {
-            lines[k] = lines[k].replaceAll(
-              RegExp(r'CODE_SIGN_STYLE = [^;]*;'),
-              'CODE_SIGN_STYLE = Manual;'
-            );
+            lines[k] = lines[k].replaceAll(RegExp(r'CODE_SIGN_STYLE = [^;]*;'),
+                'CODE_SIGN_STYLE = Manual;');
           }
         }
-        
+
         // 2. FÜGE PROVISIONING PROFILE HINZU (falls nicht existiert)
         int endBrace = -1;
         int braceCount = 0;
@@ -260,7 +269,7 @@ void _addShareExtensionProvisioningProfile(List<String> lines, String profileNam
             }
           }
         }
-        
+
         if (endBrace > i) {
           // Prüfe ob PROVISIONING_PROFILE_SPECIFIER schon existiert
           bool hasProvisioningProfile = false;
@@ -271,10 +280,12 @@ void _addShareExtensionProvisioningProfile(List<String> lines, String profileNam
               break;
             }
           }
-          
+
           if (!hasProvisioningProfile) {
-            lines.insert(endBrace, '\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "$profileName";');
-            print('✅ Added ShareExtension provisioning profile at line ${endBrace + 1}: $profileName');
+            lines.insert(endBrace,
+                '\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "$profileName";');
+            print(
+                '✅ Added ShareExtension provisioning profile at line ${endBrace + 1}: $profileName');
           }
         }
       }
@@ -285,15 +296,15 @@ void _addShareExtensionProvisioningProfile(List<String> lines, String profileNam
 /// Helper: Ersetzt Provisioning Profile in einer Zeile ohne Regex
 String _replaceProvisioningProfile(String line, String newProfileName) {
   if (!line.contains('PROVISIONING_PROFILE_SPECIFIER = ')) return line;
-  
+
   final startIndex = line.indexOf('PROVISIONING_PROFILE_SPECIFIER = ');
   final endIndex = line.indexOf(';', startIndex);
-  
+
   if (endIndex == -1) return line;
-  
-  return line.substring(0, startIndex) + 
-         'PROVISIONING_PROFILE_SPECIFIER = "$newProfileName"' + 
-         line.substring(endIndex);
+
+  return line.substring(0, startIndex) +
+      'PROVISIONING_PROFILE_SPECIFIER = "$newProfileName"' +
+      line.substring(endIndex);
 }
 
 /// xcodebuild archive but with timeout in case it hangs
@@ -334,11 +345,11 @@ Future<void> _xcodeBuildArchive({
     // KEIN GLOBALES PRODUCT_BUNDLE_IDENTIFIER - würde alle Targets überschreiben!
     // pbxproj hat die richtigen target-spezifischen Bundle IDs
   ];
-  
+
   // Target-spezifische Bundle IDs für ALLE Targets hinzufügen (statt globalem Parameter)
   args.add('Runner:PRODUCT_BUNDLE_IDENTIFIER=$bundleIdentifier');
   print('Setting Bundle ID for Runner: $bundleIdentifier');
-  
+
   if (targetBundleIds != null) {
     for (final entry in targetBundleIds.entries) {
       args.add('${entry.key}:PRODUCT_BUNDLE_IDENTIFIER=${entry.value}');
