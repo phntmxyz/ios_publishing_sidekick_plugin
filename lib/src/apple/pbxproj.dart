@@ -167,6 +167,104 @@ class XcodePbxproj {
     );
     file.writeAsStringSync(updated);
   }
+
+  /// Sets Bundle ID for Runner target only (more precise than setBundleIdentifier)
+  void setRunnerBundleIdentifier(String bundleIdentifier) {
+    file.verifyExistsOrThrow();
+    
+    print('Setting Runner Bundle ID to "$bundleIdentifier"');
+    final content = file.readAsStringSync();
+    
+    // Target Runner configurations specifically
+    final updated = content.replaceAllMapped(
+      RegExp(r'(name = (?:Debug|Release|Profile);.*?buildSettings = \{.*?)(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*;',
+            dotAll: true),
+      (match) {
+        final section = match.group(0)!;
+        // Only replace if this is a Runner section (not ShareExtension)
+        if (section.contains('ShareExtension')) {
+          return match.group(0)!; // Don't change ShareExtension
+        }
+        return '${match.group(1)}${match.group(2)}$bundleIdentifier;';
+      }
+    );
+    
+    file.writeAsStringSync(updated);
+  }
+
+  /// Sets Bundle ID and App Group for ShareExtension target only
+  void configureShareExtension({
+    required String bundleIdentifier,
+    required String appGroup,
+    String? provisioningProfile,
+  }) {
+    file.verifyExistsOrThrow();
+    
+    print('Configuring ShareExtension with Bundle ID "$bundleIdentifier" and App Group "$appGroup"');
+    final content = file.readAsStringSync();
+    final lines = content.split('\n');
+    
+    bool inShareExtensionSection = false;
+    bool inBuildSettings = false;
+    int braceDepth = 0;
+    
+    for (int i = 0; i < lines.length; i++) {
+      String line = lines[i];
+      
+      // Detect ShareExtension section
+      if (line.contains('name = ShareExtension') || 
+          (line.contains('Debug') && inShareExtensionSection) ||
+          (line.contains('Release') && inShareExtensionSection) ||
+          (line.contains('Profile') && inShareExtensionSection)) {
+        inShareExtensionSection = true;
+      }
+      
+      // Track buildSettings sections
+      if (line.contains('buildSettings = {') && inShareExtensionSection) {
+        inBuildSettings = true;
+        braceDepth = 1;
+      } else if (inBuildSettings) {
+        if (line.contains('{')) braceDepth++;
+        if (line.contains('}')) {
+          braceDepth--;
+          if (braceDepth == 0) {
+            inBuildSettings = false;
+            inShareExtensionSection = false;
+          }
+        }
+      }
+      
+      // Update settings within ShareExtension buildSettings
+      if (inBuildSettings && inShareExtensionSection) {
+        if (line.contains('PRODUCT_BUNDLE_IDENTIFIER')) {
+          lines[i] = line.replaceAll(
+            RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
+            'PRODUCT_BUNDLE_IDENTIFIER = $bundleIdentifier;'
+          );
+        }
+        if (line.contains('RECEIVE_SHARE_INTENT_GROUP_ID')) {
+          lines[i] = line.replaceAll(
+            RegExp(r'RECEIVE_SHARE_INTENT_GROUP_ID = [^;]*;'),
+            'RECEIVE_SHARE_INTENT_GROUP_ID = $appGroup;'
+          );
+        }
+        if (provisioningProfile != null && line.contains('PROVISIONING_PROFILE_SPECIFIER')) {
+          lines[i] = line.replaceAll(
+            RegExp(r'PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
+            'PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfile";'
+          );
+        }
+        if (line.contains('CODE_SIGN_STYLE')) {
+          lines[i] = line.replaceAll(
+            RegExp(r'CODE_SIGN_STYLE = [^;]*;'),
+            'CODE_SIGN_STYLE = Manual;'
+          );
+        }
+      }
+    }
+    
+    file.writeAsStringSync(lines.join('\n'));
+  }
 }
 
 extension XcodePbxprojFile on File {

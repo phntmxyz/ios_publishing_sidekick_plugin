@@ -105,7 +105,7 @@ Future<File> buildIpa({
   try {
     // LETZTE CHANCE: Set target-specific Provisioning Profiles in pbxproj HIER!
     if (additionalProvisioningProfiles != null) {
-      _setTargetSpecificProvisioningProfiles(pbxproj, provisioningProfile, additionalProvisioningProfiles);
+      _setTargetSpecificProvisioningProfiles(pbxproj, provisioningProfile, additionalProvisioningProfiles, targetBundleIds: targetBundleIds);
     } else {
       print('Main App will use: $bundleIdentifier with ${provisioningProfile.name}');
     }
@@ -169,7 +169,8 @@ Future<File> buildIpa({
 void _setTargetSpecificProvisioningProfiles(
   XcodePbxproj pbxproj, 
   ProvisioningProfile mainProfile, 
-  Map<String, ProvisioningProfile> additionalProfiles
+  Map<String, ProvisioningProfile> additionalProfiles,
+  {Map<String, String>? targetBundleIds}
 ) {
   
   String content = pbxproj.file.readAsStringSync();
@@ -195,7 +196,7 @@ void _setTargetSpecificProvisioningProfiles(
   // Add ShareExtension provisioning profiles
   for (final entry in additionalProfiles.entries) {
     if (entry.key.contains('ShareExtension')) {
-      _addShareExtensionProvisioningProfile(lines, entry.value.name);
+      _addShareExtensionProvisioningProfile(lines, entry.value.name, targetBundleIds: targetBundleIds);
       break;
     }
   }
@@ -204,7 +205,7 @@ void _setTargetSpecificProvisioningProfiles(
 }
 
 /// Adds provisioning profile settings to ShareExtension build configurations
-void _addShareExtensionProvisioningProfile(List<String> lines, String profileName) {
+void _addShareExtensionProvisioningProfile(List<String> lines, String profileName, {Map<String, String>? targetBundleIds}) {
   
   // Finde alle ShareExtension buildSettings Sectionen
   for (int i = 0; i < lines.length; i++) {
@@ -223,10 +224,8 @@ void _addShareExtensionProvisioningProfile(List<String> lines, String profileNam
       }
       
       if (isShareExtensionSection) {
-        // Finde das richtige ShareExtension Bundle ID aus targetBundleIds
-        String? shareExtensionBundleId;
-        // TODO: targetBundleIds von außen übergeben - für jetzt hardcode firebase
-        shareExtensionBundleId = 'xyz.phntm.vodafone.noascan.firebase.ShareExtension';
+        // Use the ShareExtension Bundle ID from targetBundleIds parameter
+        String? shareExtensionBundleId = targetBundleIds?['ShareExtension'];
         
         // 1. ERSETZE EXISTIERENDE BUNDLE IDs IN DIESER SECTION
         for (int k = i; k < lines.length; k++) {
