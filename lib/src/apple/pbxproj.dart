@@ -210,7 +210,7 @@ class XcodePbxproj {
     int braceDepth = 0;
 
     for (int i = 0; i < lines.length; i++) {
-      String line = lines[i];
+      final String line = lines[i];
 
       // Detect ShareExtension section
       if (line.contains('name = ShareExtension') ||
@@ -239,23 +239,23 @@ class XcodePbxproj {
       if (inBuildSettings && inShareExtensionSection) {
         if (line.contains('PRODUCT_BUNDLE_IDENTIFIER')) {
           lines[i] = line.replaceAll(
-              RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
+              RegExp('PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
               'PRODUCT_BUNDLE_IDENTIFIER = $bundleIdentifier;');
         }
         if (line.contains('RECEIVE_SHARE_INTENT_GROUP_ID')) {
           lines[i] = line.replaceAll(
-              RegExp(r'RECEIVE_SHARE_INTENT_GROUP_ID = [^;]*;'),
+              RegExp('RECEIVE_SHARE_INTENT_GROUP_ID = [^;]*;'),
               'RECEIVE_SHARE_INTENT_GROUP_ID = $appGroup;');
         }
         if (provisioningProfile != null &&
             line.contains('PROVISIONING_PROFILE_SPECIFIER')) {
           lines[i] = line.replaceAll(
-              RegExp(r'PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
+              RegExp('PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
               'PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfile";');
         }
         if (line.contains('CODE_SIGN_STYLE')) {
           lines[i] = line.replaceAll(
-              RegExp(r'CODE_SIGN_STYLE = [^;]*;'), 'CODE_SIGN_STYLE = Manual;');
+              RegExp('CODE_SIGN_STYLE = [^;]*;'), 'CODE_SIGN_STYLE = Manual;');
         }
       }
     }

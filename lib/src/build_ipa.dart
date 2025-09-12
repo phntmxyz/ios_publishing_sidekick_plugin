@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as Math;
+import 'dart:math' as math;
 
 import 'package:dcli/dcli.dart';
 import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/export_options.dart';
@@ -175,7 +175,7 @@ void _setTargetSpecificProvisioningProfiles(
     ProvisioningProfile mainProfile,
     Map<String, ProvisioningProfile> additionalProfiles,
     {Map<String, String>? targetBundleIds}) {
-  String content = pbxproj.file.readAsStringSync();
+  final String content = pbxproj.file.readAsStringSync();
   final lines = content.split('\n');
 
   // Set Runner provisioning profiles
@@ -183,7 +183,7 @@ void _setTargetSpecificProvisioningProfiles(
     if (!lines[i].contains('PROVISIONING_PROFILE_SPECIFIER')) continue;
 
     bool isRunner = false;
-    for (int j = Math.max(0, i - 10); j < Math.min(lines.length, i + 10); j++) {
+    for (int j = math.max(0, i - 10); j < math.min(lines.length, i + 10); j++) {
       if (lines[j].contains('name = Runner') ||
           lines[j].contains('/* Runner */')) {
         isRunner = true;
@@ -219,9 +219,10 @@ void _addShareExtensionProvisioningProfile(
       // Prüfe ob das eine ShareExtension Section ist
       bool isShareExtensionSection = false;
 
+      //TODO
       // Schaue 20 Zeilen vorher und nachher nach ShareExtension
-      for (int j = Math.max(0, i - 20);
-          j < Math.min(lines.length, i + 20);
+      for (int j = math.max(0, i - 20);
+          j < math.min(lines.length, i + 20);
           j++) {
         if (lines[j].contains('ShareExtension') &&
             (lines[j].contains('Debug') ||
@@ -234,24 +235,25 @@ void _addShareExtensionProvisioningProfile(
 
       if (isShareExtensionSection) {
         // Use the ShareExtension Bundle ID from targetBundleIds parameter
-        String? shareExtensionBundleId = targetBundleIds?['ShareExtension'];
+        final String? shareExtensionBundleId = targetBundleIds?['ShareExtension'];
 
         // 1. ERSETZE EXISTIERENDE BUNDLE IDs IN DIESER SECTION
         for (int k = i; k < lines.length; k++) {
-          if (lines[k].contains('}') && !lines[k].contains('{'))
+          if (lines[k].contains('}') && !lines[k].contains('{')) {
             break; // Ende der Section
+          }
 
           if (lines[k].contains('PRODUCT_BUNDLE_IDENTIFIER') &&
               shareExtensionBundleId != null) {
             lines[k] = lines[k].replaceAll(
-                RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
+                RegExp('PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
                 'PRODUCT_BUNDLE_IDENTIFIER = $shareExtensionBundleId;');
             print(
                 '✅ Updated ShareExtension Bundle ID at line ${k + 1}: $shareExtensionBundleId');
           }
 
           if (lines[k].contains('CODE_SIGN_STYLE')) {
-            lines[k] = lines[k].replaceAll(RegExp(r'CODE_SIGN_STYLE = [^;]*;'),
+            lines[k] = lines[k].replaceAll(RegExp('CODE_SIGN_STYLE = [^;]*;'),
                 'CODE_SIGN_STYLE = Manual;');
           }
         }
@@ -302,9 +304,7 @@ String _replaceProvisioningProfile(String line, String newProfileName) {
 
   if (endIndex == -1) return line;
 
-  return line.substring(0, startIndex) +
-      'PROVISIONING_PROFILE_SPECIFIER = "$newProfileName"' +
-      line.substring(endIndex);
+  return '${line.substring(0, startIndex)}PROVISIONING_PROFILE_SPECIFIER = "$newProfileName"${line.substring(endIndex)}';
 }
 
 /// xcodebuild archive but with timeout in case it hangs
