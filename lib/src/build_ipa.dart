@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as Math;
 
 import 'package:dcli/dcli.dart';
 import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/export_options.dart';
@@ -28,6 +29,8 @@ Future<File> buildIpa({
   required ProvisioningProfile provisioningProfile,
   required ExportMethod method,
   required String bundleIdentifier,
+  Map<String, ProvisioningProfile>? additionalProvisioningProfiles,
+  Map<String, String>? targetBundleIds,
   bool? newKeychain,
   DartPackage? package,
   Duration archiveSilenceTimeout = const Duration(minutes: 3),
@@ -67,14 +70,25 @@ Future<File> buildIpa({
       .asXcodePbxproj();
   final revertLocalChanges = !pbxproj.file.hasLocalChanges();
 
+  // Build provisioning profiles map for all targets
+  final provisioningProfilesMap = <String, String>{
+    bundleIdentifier: provisioningProfile.uuid,
+  };
+  
+  // Add additional provisioning profiles (e.g., for ShareExtension)
+  if (additionalProvisioningProfiles != null) {
+    for (final entry in additionalProvisioningProfiles.entries) {
+      provisioningProfilesMap[entry.key] = entry.value.uuid;
+      print('Adding provisioning profile: ${entry.key} -> ${entry.value.name} (${entry.value.uuid})');
+    }
+  }
+
   // See "xcodebuild -h" for available exportOptionsPlist keys.
   final exportOptions = {
     'compileBitcode': true,
     'destination': 'export',
     'method': method.value,
-    'provisioningProfiles': {
-      bundleIdentifier: provisioningProfile.uuid,
-    },
+    'provisioningProfiles': provisioningProfilesMap,
     'signingCertificate': certificateInfo.friendlyName,
     'signingStyle': 'manual',
     'stripSwiftSymbols': true,
@@ -89,8 +103,12 @@ Future<File> buildIpa({
   final exportDir = project.buildDir.directory('ios/ipa/Runner');
 
   try {
-    pbxproj.setBundleIdentifier(bundleIdentifier);
-    pbxproj.setProvisioningProfileSpecifier(provisioningProfile.name);
+    // LETZTE CHANCE: Set target-specific Provisioning Profiles in pbxproj HIER!
+    if (additionalProvisioningProfiles != null) {
+      _setTargetSpecificProvisioningProfiles(pbxproj, provisioningProfile, additionalProvisioningProfiles);
+    } else {
+      print('Main App will use: $bundleIdentifier with ${provisioningProfile.name}');
+    }
 
     // Archive
     try {
@@ -99,6 +117,8 @@ Future<File> buildIpa({
         archiveOutput: archive,
         provisioningProfile: provisioningProfile,
         certificateInfo: certificateInfo,
+        bundleIdentifier: bundleIdentifier,
+        targetBundleIds: targetBundleIds,
         silenceTimeout: archiveSilenceTimeout,
       );
     } on XcodeBuildArchiveTimeoutException catch (_) {
@@ -145,12 +165,146 @@ Future<File> buildIpa({
   return ipa;
 }
 
+/// Sets target-specific provisioning profiles for Runner and ShareExtension
+void _setTargetSpecificProvisioningProfiles(
+  XcodePbxproj pbxproj, 
+  ProvisioningProfile mainProfile, 
+  Map<String, ProvisioningProfile> additionalProfiles
+) {
+  
+  String content = pbxproj.file.readAsStringSync();
+  final lines = content.split('\n');
+  
+  // Set Runner provisioning profiles
+  for (int i = 0; i < lines.length; i++) {
+    if (!lines[i].contains('PROVISIONING_PROFILE_SPECIFIER')) continue;
+    
+    bool isRunner = false;
+    for (int j = Math.max(0, i - 10); j < Math.min(lines.length, i + 10); j++) {
+      if (lines[j].contains('name = Runner') || lines[j].contains('/* Runner */')) {
+        isRunner = true;
+        break;
+      }
+    }
+    
+    if (isRunner) {
+      lines[i] = _replaceProvisioningProfile(lines[i], mainProfile.name);
+    }
+  }
+  
+  // Add ShareExtension provisioning profiles
+  for (final entry in additionalProfiles.entries) {
+    if (entry.key.contains('ShareExtension')) {
+      _addShareExtensionProvisioningProfile(lines, entry.value.name);
+      break;
+    }
+  }
+  
+  pbxproj.file.writeAsStringSync(lines.join('\n'));
+}
+
+/// Adds provisioning profile settings to ShareExtension build configurations
+void _addShareExtensionProvisioningProfile(List<String> lines, String profileName) {
+  
+  // Finde alle ShareExtension buildSettings Sectionen
+  for (int i = 0; i < lines.length; i++) {
+    // Suche nach ShareExtension buildSettings
+    if (lines[i].contains('buildSettings = {')) {
+      // Prüfe ob das eine ShareExtension Section ist
+      bool isShareExtensionSection = false;
+      
+      // Schaue 20 Zeilen vorher und nachher nach ShareExtension
+      for (int j = Math.max(0, i - 20); j < Math.min(lines.length, i + 20); j++) {
+        if (lines[j].contains('ShareExtension') && 
+            (lines[j].contains('Debug') || lines[j].contains('Release') || lines[j].contains('Profile'))) {
+          isShareExtensionSection = true;
+          break;
+        }
+      }
+      
+      if (isShareExtensionSection) {
+        // Finde das richtige ShareExtension Bundle ID aus targetBundleIds
+        String? shareExtensionBundleId;
+        // TODO: targetBundleIds von außen übergeben - für jetzt hardcode firebase
+        shareExtensionBundleId = 'xyz.phntm.vodafone.noascan.firebase.ShareExtension';
+        
+        // 1. ERSETZE EXISTIERENDE BUNDLE IDs IN DIESER SECTION
+        for (int k = i; k < lines.length; k++) {
+          if (lines[k].contains('}') && !lines[k].contains('{')) break; // Ende der Section
+          
+          if (lines[k].contains('PRODUCT_BUNDLE_IDENTIFIER') && shareExtensionBundleId != null) {
+            lines[k] = lines[k].replaceAll(
+              RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
+              'PRODUCT_BUNDLE_IDENTIFIER = $shareExtensionBundleId;'
+            );
+            print('✅ Updated ShareExtension Bundle ID at line ${k + 1}: $shareExtensionBundleId');
+          }
+          
+          if (lines[k].contains('CODE_SIGN_STYLE')) {
+            lines[k] = lines[k].replaceAll(
+              RegExp(r'CODE_SIGN_STYLE = [^;]*;'),
+              'CODE_SIGN_STYLE = Manual;'
+            );
+          }
+        }
+        
+        // 2. FÜGE PROVISIONING PROFILE HINZU (falls nicht existiert)
+        int endBrace = -1;
+        int braceCount = 0;
+        for (int k = i; k < lines.length; k++) {
+          if (lines[k].contains('{')) braceCount++;
+          if (lines[k].contains('}')) {
+            braceCount--;
+            if (braceCount == 0) {
+              endBrace = k;
+              break;
+            }
+          }
+        }
+        
+        if (endBrace > i) {
+          // Prüfe ob PROVISIONING_PROFILE_SPECIFIER schon existiert
+          bool hasProvisioningProfile = false;
+          for (int k = i; k < endBrace; k++) {
+            if (lines[k].contains('PROVISIONING_PROFILE_SPECIFIER')) {
+              hasProvisioningProfile = true;
+              lines[k] = _replaceProvisioningProfile(lines[k], profileName);
+              break;
+            }
+          }
+          
+          if (!hasProvisioningProfile) {
+            lines.insert(endBrace, '\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "$profileName";');
+            print('✅ Added ShareExtension provisioning profile at line ${endBrace + 1}: $profileName');
+          }
+        }
+      }
+    }
+  }
+}
+
+/// Helper: Ersetzt Provisioning Profile in einer Zeile ohne Regex
+String _replaceProvisioningProfile(String line, String newProfileName) {
+  if (!line.contains('PROVISIONING_PROFILE_SPECIFIER = ')) return line;
+  
+  final startIndex = line.indexOf('PROVISIONING_PROFILE_SPECIFIER = ');
+  final endIndex = line.indexOf(';', startIndex);
+  
+  if (endIndex == -1) return line;
+  
+  return line.substring(0, startIndex) + 
+         'PROVISIONING_PROFILE_SPECIFIER = "$newProfileName"' + 
+         line.substring(endIndex);
+}
+
 /// xcodebuild archive but with timeout in case it hangs
 Future<void> _xcodeBuildArchive({
   required File xcodeWorkspace,
   required File archiveOutput,
   required ProvisioningProfile provisioningProfile,
   required P12CertificateInfo certificateInfo,
+  required String bundleIdentifier,
+  Map<String, String>? targetBundleIds,
   Duration silenceTimeout = const Duration(minutes: 3),
 }) async {
   final completer = Completer<void>();
@@ -175,10 +329,23 @@ Future<void> _xcodeBuildArchive({
     ...['-configuration', 'Release'],
     ...['-archivePath', archiveOutput.path],
     'CODE_SIGN_STYLE=Manual',
-    'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
+    // KEINE GLOBALE PROVISIONING_PROFILE - pbxproj hat die richtigen target-spezifischen!
     'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
     'DEVELOPMENT_TEAM=${provisioningProfile.teamIdentifier}',
+    // KEIN GLOBALES PRODUCT_BUNDLE_IDENTIFIER - würde alle Targets überschreiben!
+    // pbxproj hat die richtigen target-spezifischen Bundle IDs
   ];
+  
+  // Target-spezifische Bundle IDs für ALLE Targets hinzufügen (statt globalem Parameter)
+  args.add('Runner:PRODUCT_BUNDLE_IDENTIFIER=$bundleIdentifier');
+  print('Setting Bundle ID for Runner: $bundleIdentifier');
+  
+  if (targetBundleIds != null) {
+    for (final entry in targetBundleIds.entries) {
+      args.add('${entry.key}:PRODUCT_BUNDLE_IDENTIFIER=${entry.value}');
+      print('Setting Bundle ID for ${entry.key}: ${entry.value}');
+    }
+  }
 
   print("xcodebuild ${args.join(' ')}");
   process = await Process.start(

@@ -77,6 +77,96 @@ class XcodePbxproj {
     );
     file.writeAsStringSync(update);
   }
+
+  /// Sets Bundle ID for Main App (Runner) target only - DEPRECATED, use setBundleIdentifier instead
+  void setMainAppBundleIdentifier(String bundleIdentifier) {
+    // Just delegate to the working setBundleIdentifier method
+    setBundleIdentifier(bundleIdentifier);
+  }
+
+  /// Sets Bundle ID for ShareExtension target only  
+  void setShareExtensionBundleIdentifier(String bundleIdentifier) {
+    file.verifyExistsOrThrow();
+    
+    print('Setting ShareExtension Bundle ID to "$bundleIdentifier"');
+    final content = file.readAsStringSync();
+    
+    // Find and replace any Bundle ID that ends with .ShareExtension
+    final updated = content.replaceAllMapped(
+      RegExp(r'(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*\.ShareExtension;'),
+      (match) => '${match.group(1)}$bundleIdentifier;'
+    );
+    
+    file.writeAsStringSync(updated);
+  }
+
+  /// Sets Provisioning Profile for Main App (Runner) target only
+  void setMainAppProvisioningProfile(String provisioningProfileName) {
+    file.verifyExistsOrThrow();
+    
+    print('Setting Main App Provisioning Profile to "$provisioningProfileName"');
+    final content = file.readAsStringSync();
+    
+    // Target Runner target specifically
+    final runnerTargetRegex = RegExp(
+      r'(\/\* Begin XCBuildConfiguration section \*\/.*?name = Runner;.*?buildSettings = \{.*?)(PROVISIONING_PROFILE_SPECIFIER = [^;]*;)',
+      dotAll: true,
+    );
+    
+    final match = runnerTargetRegex.firstMatch(content);
+    if (match == null) {
+      throw "Could not find Runner target PROVISIONING_PROFILE_SPECIFIER in project.pbxproj";
+    }
+    
+    final updated = content.replaceAllMapped(runnerTargetRegex, (match) {
+      return '${match.group(1)}PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";';
+    });
+    
+    file.writeAsStringSync(updated);
+  }
+
+  /// Sets Provisioning Profile for ShareExtension target only
+  void setShareExtensionProvisioningProfile(String provisioningProfileName) {
+    file.verifyExistsOrThrow();
+    
+    print('Setting ShareExtension Provisioning Profile to "$provisioningProfileName"');
+    final content = file.readAsStringSync();
+    
+    // Target ShareExtension target specifically
+    final shareExtTargetRegex = RegExp(
+      r'(\/\* Begin XCBuildConfiguration section \*\/.*?name = ShareExtension;.*?buildSettings = \{.*?)(PROVISIONING_PROFILE_SPECIFIER = [^;]*;)',
+      dotAll: true,
+    );
+    
+    final match = shareExtTargetRegex.firstMatch(content);
+    if (match == null) {
+      throw "Could not find ShareExtension target PROVISIONING_PROFILE_SPECIFIER in project.pbxproj";
+    }
+    
+    final updated = content.replaceAllMapped(shareExtTargetRegex, (match) {
+      return '${match.group(1)}PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";';
+    });
+    
+    file.writeAsStringSync(updated);
+  }
+
+  /// Sets App Group for all targets
+  void setAppGroup(String appGroupId) {
+    file.verifyExistsOrThrow();
+    
+    print('Setting App Group to "$appGroupId"');
+    final content = file.readAsStringSync();
+    final appGroupRegex = RegExp('RECEIVE_SHARE_INTENT_GROUP_ID = [^;]*;');
+    final match = appGroupRegex.hasMatch(content);
+    if (!match) {
+      throw "project.pbxproj doesn't contain 'RECEIVE_SHARE_INTENT_GROUP_ID'";
+    }
+    final updated = content.replaceAll(
+      appGroupRegex,
+      'RECEIVE_SHARE_INTENT_GROUP_ID = $appGroupId;',
+    );
+    file.writeAsStringSync(updated);
+  }
 }
 
 extension XcodePbxprojFile on File {
