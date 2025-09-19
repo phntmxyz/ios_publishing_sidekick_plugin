@@ -197,6 +197,7 @@ class XcodePbxproj {
     required String bundleIdentifier,
     required String appGroup,
     String? provisioningProfile,
+    Function()? onConfigurationComplete,
   }) {
     file.verifyExistsOrThrow();
 
@@ -261,6 +262,9 @@ class XcodePbxproj {
     }
 
     file.writeAsStringSync(lines.join('\n'));
+
+    // Call configuration complete callback if provided
+    onConfigurationComplete?.call();
   }
 }
 
