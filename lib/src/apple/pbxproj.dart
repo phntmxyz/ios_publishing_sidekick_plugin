@@ -92,8 +92,7 @@ class XcodePbxproj {
     final content = file.readAsStringSync();
 
     // Find and replace any Bundle ID that ends with .ShareExtension
-    final updated = content.replaceAllMapped(
-        RegExp(r'(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*\.ShareExtension;'),
+    final updated = content.replaceAllMapped(RegExp(r'(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*\.ShareExtension;'),
         (match) => '${match.group(1)}$bundleIdentifier;');
 
     file.writeAsStringSync(updated);
@@ -103,8 +102,7 @@ class XcodePbxproj {
   void setMainAppProvisioningProfile(String provisioningProfileName) {
     file.verifyExistsOrThrow();
 
-    print(
-        'Setting Main App Provisioning Profile to "$provisioningProfileName"');
+    print('Setting Main App Provisioning Profile to "$provisioningProfileName"');
     final content = file.readAsStringSync();
 
     // Target Runner target specifically
@@ -129,8 +127,7 @@ class XcodePbxproj {
   void setShareExtensionProvisioningProfile(String provisioningProfileName) {
     file.verifyExistsOrThrow();
 
-    print(
-        'Setting ShareExtension Provisioning Profile to "$provisioningProfileName"');
+    print('Setting ShareExtension Provisioning Profile to "$provisioningProfileName"');
     final content = file.readAsStringSync();
 
     // Target ShareExtension target specifically
@@ -164,6 +161,7 @@ class XcodePbxproj {
     }
     final updated = content.replaceAll(
       appGroupRegex,
+      // TODO Remove, this is a custom property
       'RECEIVE_SHARE_INTENT_GROUP_ID = $appGroupId;',
     );
     file.writeAsStringSync(updated);
@@ -178,8 +176,7 @@ class XcodePbxproj {
 
     // Target Runner configurations specifically
     final updated = content.replaceAllMapped(
-        RegExp(
-            r'(name = (?:Debug|Release|Profile);.*?buildSettings = \{.*?)(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*;',
+        RegExp(r'(name = (?:Debug|Release|Profile);.*?buildSettings = \{.*?)(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*;',
             dotAll: true), (match) {
       final section = match.group(0)!;
       // Only replace if this is a Runner section (not ShareExtension)
@@ -192,79 +189,222 @@ class XcodePbxproj {
     file.writeAsStringSync(updated);
   }
 
-  /// Sets Bundle ID and App Group for ShareExtension target only
-  void configureShareExtension({
+  /// Sets the PRODUCT_BUNDLE_IDENTIFIER for a specific extension target.
+  ///
+  /// This method finds the extension target by [extensionName] and updates its
+  /// bundle identifier in the project.pbxproj file.
+  ///
+  /// [extensionName] is the name of the extension target (e.g., "ShareExtension").
+  /// [bundleIdentifier] is the new bundle identifier to set (e.g., "com.example.app.ShareExtension").
+  /// [buildConfiguration] optionally specifies which configuration to update ("Debug", "Release", or "Profile").
+  /// If null, all configurations are updated.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Update all configurations
+  /// pbxproj.setExtensionBundleIdentifier(
+  ///   extensionName: 'ShareExtension',
+  ///   bundleIdentifier: 'com.example.app.ShareExtension',
+  /// );
+  ///
+  /// // Update only Release configuration
+  /// pbxproj.setExtensionBundleIdentifier(
+  ///   extensionName: 'ShareExtension',
+  ///   bundleIdentifier: 'com.example.app.ShareExtension',
+  ///   buildConfiguration: 'Release',
+  /// );
+  /// ```
+  ///
+  /// Throws an error if:
+  /// - The extension target with [extensionName] is not found
+  /// - The PRODUCT_BUNDLE_IDENTIFIER property doesn't exist in the configuration
+  /// - The update fails for any reason
+  void setExtensionBundleIdentifier({
+    required String extensionName,
     required String bundleIdentifier,
-    required String appGroup,
-    String? provisioningProfile,
-    Function()? onConfigurationComplete,
+    String? buildConfiguration,
   }) {
     file.verifyExistsOrThrow();
 
-    print(
-        'Configuring ShareExtension with Bundle ID "$bundleIdentifier" and App Group "$appGroup"');
+    print('Setting Bundle ID for extension "$extensionName" to "$bundleIdentifier"');
     final content = file.readAsStringSync();
-    final lines = content.split('\n');
 
-    bool inShareExtensionSection = false;
-    bool inBuildSettings = false;
-    int braceDepth = 0;
+    // Step 1: Find PBXNativeTarget with matching extensionName and extract buildConfigurationList ID
+    final targetRegex = RegExp(
+      r'\/\* ' + RegExp.escape(extensionName) + r' \*\/ = \{[^}]*isa = PBXNativeTarget;[^}]*buildConfigurationList = ([A-F0-9]+)',
+      dotAll: true,
+    );
+    final targetMatch = targetRegex.firstMatch(content);
+    if (targetMatch == null) {
+      throw 'Could not find PBXNativeTarget with name "$extensionName" in project.pbxproj';
+    }
+    final configListId = targetMatch.group(1)!;
 
-    for (int i = 0; i < lines.length; i++) {
-      final String line = lines[i];
-
-      // Detect ShareExtension section
-      if (line.contains('name = ShareExtension') ||
-          (line.contains('Debug') && inShareExtensionSection) ||
-          (line.contains('Release') && inShareExtensionSection) ||
-          (line.contains('Profile') && inShareExtensionSection)) {
-        inShareExtensionSection = true;
-      }
-
-      // Track buildSettings sections
-      if (line.contains('buildSettings = {') && inShareExtensionSection) {
-        inBuildSettings = true;
-        braceDepth = 1;
-      } else if (inBuildSettings) {
-        if (line.contains('{')) braceDepth++;
-        if (line.contains('}')) {
-          braceDepth--;
-          if (braceDepth == 0) {
-            inBuildSettings = false;
-            inShareExtensionSection = false;
-          }
-        }
-      }
-
-      // Update settings within ShareExtension buildSettings
-      if (inBuildSettings && inShareExtensionSection) {
-        if (line.contains('PRODUCT_BUNDLE_IDENTIFIER')) {
-          lines[i] = line.replaceAll(
-              RegExp('PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
-              'PRODUCT_BUNDLE_IDENTIFIER = $bundleIdentifier;');
-        }
-        if (line.contains('RECEIVE_SHARE_INTENT_GROUP_ID')) {
-          lines[i] = line.replaceAll(
-              RegExp('RECEIVE_SHARE_INTENT_GROUP_ID = [^;]*;'),
-              'RECEIVE_SHARE_INTENT_GROUP_ID = $appGroup;');
-        }
-        if (provisioningProfile != null &&
-            line.contains('PROVISIONING_PROFILE_SPECIFIER')) {
-          lines[i] = line.replaceAll(
-              RegExp('PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
-              'PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfile";');
-        }
-        if (line.contains('CODE_SIGN_STYLE')) {
-          lines[i] = line.replaceAll(
-              RegExp('CODE_SIGN_STYLE = [^;]*;'), 'CODE_SIGN_STYLE = Manual;');
-        }
-      }
+    // Step 2: Find XCConfigurationList with that ID and extract build configuration IDs
+    final configListRegex = RegExp(
+      configListId + r' \/\* Build configuration list[^}]*buildConfigurations = \([^)]*\)',
+      dotAll: true,
+    );
+    final configListMatch = configListRegex.firstMatch(content);
+    if (configListMatch == null) {
+      throw 'Could not find XCConfigurationList with ID "$configListId" in project.pbxproj';
     }
 
-    file.writeAsStringSync(lines.join('\n'));
+    // Extract build configuration IDs (e.g., "3431A0622DCB8D4A007C5167 /* Debug */")
+    final buildConfigRegex = RegExp(r'([A-F0-9]+) \/\* (Debug|Release|Profile) \*\/');
+    final buildConfigs = buildConfigRegex.allMatches(configListMatch.group(0)!);
 
-    // Call configuration complete callback if provided
-    onConfigurationComplete?.call();
+    if (buildConfigs.isEmpty) {
+      throw 'Could not find any build configurations for extension "$extensionName"';
+    }
+
+    // Step 3: For each build configuration (or specific one), update PRODUCT_BUNDLE_IDENTIFIER
+    var updated = content;
+    for (final configMatch in buildConfigs) {
+      final configId = configMatch.group(1)!;
+      final configName = configMatch.group(2)!;
+
+      // Skip if buildConfiguration is specified and doesn't match
+      if (buildConfiguration != null && configName != buildConfiguration) {
+        continue;
+      }
+
+      // Find XCBuildConfiguration block and update PRODUCT_BUNDLE_IDENTIFIER
+      final buildConfigBlockRegex = RegExp(
+        configId + r' \/\* ' + configName + r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\};',
+        dotAll: true,
+      );
+
+      updated = updated.replaceAllMapped(buildConfigBlockRegex, (match) {
+        final buildSettingsContent = match.group(1)!;
+        final updatedBuildSettings = buildSettingsContent.replaceAll(
+          RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
+          'PRODUCT_BUNDLE_IDENTIFIER = $bundleIdentifier;',
+        );
+
+        // If PRODUCT_BUNDLE_IDENTIFIER doesn't exist, we need to add it
+        if (!buildSettingsContent.contains('PRODUCT_BUNDLE_IDENTIFIER')) {
+          throw 'PRODUCT_BUNDLE_IDENTIFIER not found in build configuration "$configName" for extension "$extensionName"';
+        }
+
+        return match.group(0)!.replaceFirst(buildSettingsContent, updatedBuildSettings);
+      });
+    }
+
+    if (updated == content) {
+      throw 'Failed to update PRODUCT_BUNDLE_IDENTIFIER for extension "$extensionName"';
+    }
+
+    file.writeAsStringSync(updated);
+  }
+
+  /// Sets the PROVISIONING_PROFILE_SPECIFIER for a specific extension target.
+  ///
+  /// This method finds the extension target by [extensionName] and updates its
+  /// provisioning profile specifier in the project.pbxproj file.
+  ///
+  /// [extensionName] is the name of the extension target (e.g., "ShareExtension").
+  /// [provisioningProfileName] is the provisioning profile name to set.
+  /// [buildConfiguration] optionally specifies which configuration to update ("Debug", "Release", or "Profile").
+  /// If null, all configurations are updated.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Update all configurations
+  /// pbxproj.setExtensionProvisioningProfile(
+  ///   extensionName: 'ShareExtension',
+  ///   provisioningProfileName: 'My Share Extension Profile',
+  /// );
+  ///
+  /// // Update only Release configuration
+  /// pbxproj.setExtensionProvisioningProfile(
+  ///   extensionName: 'ShareExtension',
+  ///   provisioningProfileName: 'My Share Extension Profile',
+  ///   buildConfiguration: 'Release',
+  /// );
+  /// ```
+  ///
+  /// Throws an error if:
+  /// - The extension target with [extensionName] is not found
+  /// - The PROVISIONING_PROFILE_SPECIFIER property doesn't exist in the configuration
+  /// - The update fails for any reason
+  void setExtensionProvisioningProfile({
+    required String extensionName,
+    required String provisioningProfileName,
+    String? buildConfiguration,
+  }) {
+    file.verifyExistsOrThrow();
+
+    print('Setting Provisioning Profile for extension "$extensionName" to "$provisioningProfileName"');
+    final content = file.readAsStringSync();
+
+    // Step 1: Find PBXNativeTarget with matching extensionName and extract buildConfigurationList ID
+    final targetRegex = RegExp(
+      r'\/\* ' + RegExp.escape(extensionName) + r' \*\/ = \{[^}]*isa = PBXNativeTarget;[^}]*buildConfigurationList = ([A-F0-9]+)',
+      dotAll: true,
+    );
+    final targetMatch = targetRegex.firstMatch(content);
+    if (targetMatch == null) {
+      throw 'Could not find PBXNativeTarget with name "$extensionName" in project.pbxproj';
+    }
+    final configListId = targetMatch.group(1)!;
+
+    // Step 2: Find XCConfigurationList with that ID and extract build configuration IDs
+    final configListRegex = RegExp(
+      configListId + r' \/\* Build configuration list[^}]*buildConfigurations = \([^)]*\)',
+      dotAll: true,
+    );
+    final configListMatch = configListRegex.firstMatch(content);
+    if (configListMatch == null) {
+      throw 'Could not find XCConfigurationList with ID "$configListId" in project.pbxproj';
+    }
+
+    // Extract build configuration IDs (e.g., "3431A0622DCB8D4A007C5167 /* Debug */")
+    final buildConfigRegex = RegExp(r'([A-F0-9]+) \/\* (Debug|Release|Profile) \*\/');
+    final buildConfigs = buildConfigRegex.allMatches(configListMatch.group(0)!);
+
+    if (buildConfigs.isEmpty) {
+      throw 'Could not find any build configurations for extension "$extensionName"';
+    }
+
+    // Step 3: For each build configuration (or specific one), update PROVISIONING_PROFILE_SPECIFIER
+    var updated = content;
+    for (final configMatch in buildConfigs) {
+      final configId = configMatch.group(1)!;
+      final configName = configMatch.group(2)!;
+
+      // Skip if buildConfiguration is specified and doesn't match
+      if (buildConfiguration != null && configName != buildConfiguration) {
+        continue;
+      }
+
+      // Find XCBuildConfiguration block and update PROVISIONING_PROFILE_SPECIFIER
+      final buildConfigBlockRegex = RegExp(
+        configId + r' \/\* ' + configName + r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\};',
+        dotAll: true,
+      );
+
+      updated = updated.replaceAllMapped(buildConfigBlockRegex, (match) {
+        final buildSettingsContent = match.group(1)!;
+        final updatedBuildSettings = buildSettingsContent.replaceAll(
+          RegExp(r'PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
+          'PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";',
+        );
+
+        // If PROVISIONING_PROFILE_SPECIFIER doesn't exist, we need to add it
+        if (!buildSettingsContent.contains('PROVISIONING_PROFILE_SPECIFIER')) {
+          throw 'PROVISIONING_PROFILE_SPECIFIER not found in build configuration "$configName" for extension "$extensionName"';
+        }
+
+        return match.group(0)!.replaceFirst(buildSettingsContent, updatedBuildSettings);
+      });
+    }
+
+    if (updated == content) {
+      throw 'Failed to update PROVISIONING_PROFILE_SPECIFIER for extension "$extensionName"';
+    }
+
+    file.writeAsStringSync(updated);
   }
 }
 

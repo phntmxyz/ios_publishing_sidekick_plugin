@@ -43,8 +43,7 @@ Future<File> buildIpa({
   final project = package ?? mainProject!;
 
   installProvisioningProfile(provisioningProfile);
-  final certificateInfo =
-      readP12CertificateInfo(certificate, password: certificatePassword);
+  final certificateInfo = readP12CertificateInfo(certificate, password: certificatePassword);
 
   final keyChain = () {
     final bool isCi = env['CI'] == 'true';
@@ -65,9 +64,7 @@ Future<File> buildIpa({
   );
 
   print('Adjusting Xcode project.pbxproj file');
-  final pbxproj = project.root
-      .file('ios/Runner.xcodeproj/project.pbxproj')
-      .asXcodePbxproj();
+  final pbxproj = project.root.file('ios/Runner.xcodeproj/project.pbxproj').asXcodePbxproj();
   final revertLocalChanges = !pbxproj.file.hasLocalChanges();
 
   // Build provisioning profiles map for all targets
@@ -79,8 +76,7 @@ Future<File> buildIpa({
   if (additionalProvisioningProfiles != null) {
     for (final entry in additionalProvisioningProfiles.entries) {
       provisioningProfilesMap[entry.key] = entry.value.uuid;
-      print(
-          'Adding provisioning profile: ${entry.key} -> ${entry.value.name} (${entry.value.uuid})');
+      print('Adding provisioning profile: ${entry.key} -> ${entry.value.name} (${entry.value.uuid})');
     }
   }
 
@@ -104,16 +100,6 @@ Future<File> buildIpa({
   final exportDir = project.buildDir.directory('ios/ipa/Runner');
 
   try {
-    // LETZTE CHANCE: Set target-specific Provisioning Profiles in pbxproj HIER!
-    if (additionalProvisioningProfiles != null) {
-      _setTargetSpecificProvisioningProfiles(
-          pbxproj, provisioningProfile, additionalProvisioningProfiles,
-          targetBundleIds: targetBundleIds);
-    } else {
-      print(
-          'Main App will use: $bundleIdentifier with ${provisioningProfile.name}');
-    }
-
     // Archive
     try {
       await _xcodeBuildArchive(
@@ -161,56 +147,52 @@ Future<File> buildIpa({
     }
   }
 
-  final ipa = exportDir
-      .listSync()
-      .whereType<File>()
-      .firstWhere((file) => file.name.endsWith('.ipa'));
+  final ipa = exportDir.listSync().whereType<File>().firstWhere((file) => file.name.endsWith('.ipa'));
 
   return ipa;
 }
-
-/// Sets target-specific provisioning profiles for Runner and ShareExtension
-void _setTargetSpecificProvisioningProfiles(
-    XcodePbxproj pbxproj,
-    ProvisioningProfile mainProfile,
-    Map<String, ProvisioningProfile> additionalProfiles,
-    {Map<String, String>? targetBundleIds}) {
-  final String content = pbxproj.file.readAsStringSync();
-  final lines = content.split('\n');
-
-  // Set Runner provisioning profiles
-  for (int i = 0; i < lines.length; i++) {
-    if (!lines[i].contains('PROVISIONING_PROFILE_SPECIFIER')) continue;
-
-    bool isRunner = false;
-    for (int j = math.max(0, i - 10); j < math.min(lines.length, i + 10); j++) {
-      if (lines[j].contains('name = Runner') ||
-          lines[j].contains('/* Runner */')) {
-        isRunner = true;
-        break;
-      }
-    }
-
-    if (isRunner) {
-      lines[i] = _replaceProvisioningProfile(lines[i], mainProfile.name);
-    }
-  }
-
-  // Add ShareExtension provisioning profiles
-  for (final entry in additionalProfiles.entries) {
-    if (entry.key.contains('ShareExtension')) {
-      _addShareExtensionProvisioningProfile(lines, entry.value.name,
-          targetBundleIds: targetBundleIds);
-      break;
-    }
-  }
-
-  pbxproj.file.writeAsStringSync(lines.join('\n'));
-}
+//
+// /// Sets target-specific provisioning profiles for Runner and ShareExtension
+// void _setTargetSpecificProvisioningProfiles(
+//     XcodePbxproj pbxproj,
+//     ProvisioningProfile mainProfile,
+//     Map<String, ProvisioningProfile> additionalProfiles,
+//     {Map<String, String>? targetBundleIds}) {
+//   final String content = pbxproj.file.readAsStringSync();
+//   final lines = content.split('\n');
+//
+//   // Set Runner provisioning profiles
+//   for (int i = 0; i < lines.length; i++) {
+//     if (!lines[i].contains('PROVISIONING_PROFILE_SPECIFIER')) continue;
+//
+//     bool isRunner = false;
+//     for (int j = math.max(0, i - 10); j < math.min(lines.length, i + 10); j++) {
+//       if (lines[j].contains('name = Runner') ||
+//           lines[j].contains('/* Runner */')) {
+//         isRunner = true;
+//         break;
+//       }
+//     }
+//
+//     if (isRunner) {
+//       lines[i] = _replaceProvisioningProfile(lines[i], mainProfile.name);
+//     }
+//   }
+//
+//   // Add ShareExtension provisioning profiles
+//   for (final entry in additionalProfiles.entries) {
+//     if (entry.key.contains('ShareExtension')) {
+//       _addShareExtensionProvisioningProfile(lines, entry.value.name,
+//           targetBundleIds: targetBundleIds);
+//       break;
+//     }
+//   }
+//
+//   pbxproj.file.writeAsStringSync(lines.join('\n'));
+// }
 
 /// Adds provisioning profile settings to ShareExtension build configurations
-void _addShareExtensionProvisioningProfile(
-    List<String> lines, String profileName,
+void _addShareExtensionProvisioningProfile(List<String> lines, String profileName,
     {Map<String, String>? targetBundleIds}) {
   // Finde alle ShareExtension buildSettings Sectionen
   for (int i = 0; i < lines.length; i++) {
@@ -221,13 +203,9 @@ void _addShareExtensionProvisioningProfile(
 
       //TODO
       // Schaue 20 Zeilen vorher und nachher nach ShareExtension
-      for (int j = math.max(0, i - 20);
-          j < math.min(lines.length, i + 20);
-          j++) {
+      for (int j = math.max(0, i - 20); j < math.min(lines.length, i + 20); j++) {
         if (lines[j].contains('ShareExtension') &&
-            (lines[j].contains('Debug') ||
-                lines[j].contains('Release') ||
-                lines[j].contains('Profile'))) {
+            (lines[j].contains('Debug') || lines[j].contains('Release') || lines[j].contains('Profile'))) {
           isShareExtensionSection = true;
           break;
         }
@@ -243,18 +221,14 @@ void _addShareExtensionProvisioningProfile(
             break; // Ende der Section
           }
 
-          if (lines[k].contains('PRODUCT_BUNDLE_IDENTIFIER') &&
-              shareExtensionBundleId != null) {
+          if (lines[k].contains('PRODUCT_BUNDLE_IDENTIFIER') && shareExtensionBundleId != null) {
             lines[k] = lines[k].replaceAll(
-                RegExp('PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
-                'PRODUCT_BUNDLE_IDENTIFIER = $shareExtensionBundleId;');
-            print(
-                '✅ Updated ShareExtension Bundle ID at line ${k + 1}: $shareExtensionBundleId');
+                RegExp('PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'), 'PRODUCT_BUNDLE_IDENTIFIER = $shareExtensionBundleId;');
+            print('✅ Updated ShareExtension Bundle ID at line ${k + 1}: $shareExtensionBundleId');
           }
 
           if (lines[k].contains('CODE_SIGN_STYLE')) {
-            lines[k] = lines[k].replaceAll(RegExp('CODE_SIGN_STYLE = [^;]*;'),
-                'CODE_SIGN_STYLE = Manual;');
+            lines[k] = lines[k].replaceAll(RegExp('CODE_SIGN_STYLE = [^;]*;'), 'CODE_SIGN_STYLE = Manual;');
           }
         }
 
@@ -284,10 +258,8 @@ void _addShareExtensionProvisioningProfile(
           }
 
           if (!hasProvisioningProfile) {
-            lines.insert(endBrace,
-                '\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "$profileName";');
-            print(
-                '✅ Added ShareExtension provisioning profile at line ${endBrace + 1}: $profileName');
+            lines.insert(endBrace, '\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "$profileName";');
+            print('✅ Added ShareExtension provisioning profile at line ${endBrace + 1}: $profileName');
           }
         }
       }
@@ -378,8 +350,7 @@ Future<void> _xcodeBuildArchive({
       timeoutTimer?.cancel();
       completer.complete();
     } else {
-      completer
-          .completeError('xcodebuild archive failed with exit code $exitCode');
+      completer.completeError('xcodebuild archive failed with exit code $exitCode');
     }
   });
   return completer.future;
