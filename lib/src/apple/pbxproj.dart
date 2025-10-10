@@ -290,11 +290,7 @@ class XcodePbxproj {
         return match.group(0)!.replaceFirst(buildSettingsContent, updatedBuildSettings);
       });
     }
-
-    if (updated == content) {
-      throw 'Failed to update PRODUCT_BUNDLE_IDENTIFIER for extension "$extensionName"';
-    }
-
+    
     file.writeAsStringSync(updated);
   }
 
@@ -398,10 +394,6 @@ class XcodePbxproj {
 
         return match.group(0)!.replaceFirst(buildSettingsContent, updatedBuildSettings);
       });
-    }
-
-    if (updated == content) {
-      throw 'Failed to update PROVISIONING_PROFILE_SPECIFIER for extension "$extensionName"';
     }
 
     file.writeAsStringSync(updated);
