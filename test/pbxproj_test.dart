@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/pbxproj.dart';
 import 'package:test/test.dart';
+// ignore: depend_on_referenced_packages
 import 'package:test_api/src/backend/invoker.dart' show Invoker;
 
 void main() {
@@ -63,11 +64,12 @@ void main() {
 
       // Get original values
       final originalContent = testPbxproj.readAsStringSync();
-      final originalReleaseMatch = RegExp(
-        r'3431A0632DCB8D4A007C5167 \/\* Release \*\/ = \{.*?PRODUCT_BUNDLE_IDENTIFIER = ([^;]*);',
-        dotAll: true,
-      ).firstMatch(originalContent);
-      final originalReleaseBundleId = originalReleaseMatch?.group(1);
+      // Store original Release bundle ID (not currently used but kept for reference)
+      // final originalReleaseMatch = RegExp(
+      //   r'3431A0632DCB8D4A007C5167 \/\* Release \*\/ = \{.*?PRODUCT_BUNDLE_IDENTIFIER = ([^;]*);',
+      //   dotAll: true,
+      // ).firstMatch(originalContent);
+      // final originalReleaseBundleId = originalReleaseMatch?.group(1);
 
       final originalDebugMatch = RegExp(
         r'3431A0622DCB8D4A007C5167 \/\* Debug \*\/ = \{.*?PRODUCT_BUNDLE_IDENTIFIER = ([^;]*);',
@@ -120,9 +122,6 @@ void main() {
 
     test('preserves other build settings', () {
       final pbxproj = XcodePbxproj(testPbxproj);
-
-      // Get original content
-      final originalContent = testPbxproj.readAsStringSync();
 
       pbxproj.setExtensionBundleIdentifier(
         extensionName: 'ShareExtension',
@@ -268,15 +267,13 @@ void main() {
     test('does not affect Runner target provisioning profile', () {
       final pbxproj = XcodePbxproj(testPbxproj);
 
-      // Get original Runner Debug config block
-      final originalContent = testPbxproj.readAsStringSync();
-      final originalRunnerBlock = RegExp(
-        r'97C147061CF9000F007C117D /\* Debug \*/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\};',
-        dotAll: true,
-      ).firstMatch(originalContent);
-      expect(originalRunnerBlock, isNotNull);
-      final originalBuildSettings = originalRunnerBlock!.group(1)!;
-      expect(originalBuildSettings.contains('PROVISIONING_PROFILE_SPECIFIER'), false,
+      // Get original Runner Debug buildSettings
+      final originalBuildSettings = pbxproj.getBuildSettings(
+        targetName: 'Runner',
+        buildConfiguration: 'Debug',
+      );
+      expect(originalBuildSettings, isNotNull);
+      expect(originalBuildSettings!.contains('PROVISIONING_PROFILE_SPECIFIER'), false,
           reason: 'Runner Debug should not have PROVISIONING_PROFILE_SPECIFIER initially');
 
       pbxproj.setExtensionProvisioningProfile(
@@ -284,16 +281,13 @@ void main() {
         provisioningProfileName: 'New Share Extension Profile',
       );
 
-      final content = testPbxproj.readAsStringSync();
-
       // Check Runner Debug configuration is unchanged (still doesn't have PROVISIONING_PROFILE_SPECIFIER)
-      final runnerDebugBlock = RegExp(
-        r'97C147061CF9000F007C117D /\* Debug \*/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\};',
-        dotAll: true,
-      ).firstMatch(content);
-      expect(runnerDebugBlock, isNotNull);
-      final updatedBuildSettings = runnerDebugBlock!.group(1)!;
-      expect(updatedBuildSettings.contains('PROVISIONING_PROFILE_SPECIFIER'), false,
+      final updatedBuildSettings = pbxproj.getBuildSettings(
+        targetName: 'Runner',
+        buildConfiguration: 'Debug',
+      );
+      expect(updatedBuildSettings, isNotNull);
+      expect(updatedBuildSettings!.contains('PROVISIONING_PROFILE_SPECIFIER'), false,
           reason: 'Runner Debug should still not have PROVISIONING_PROFILE_SPECIFIER after modifying ShareExtension');
     });
 
@@ -333,37 +327,24 @@ void main() {
         buildConfiguration: 'Debug',
       );
 
-      final content = testPbxproj.readAsStringSync();
+      // Use helper method to get buildSettings
+      final buildSettingsContent = pbxproj.getBuildSettings(
+        targetName: 'ShareExtension',
+        buildConfiguration: 'Debug',
+      );
+      expect(buildSettingsContent, isNotNull, reason: 'Should find ShareExtension Debug buildSettings');
 
-      // Extract the entire Debug configuration block
-      final configBlock = RegExp(
-        r'3431A0622DCB8D4A007C5167 /\* Debug \*/ = \{(.*?)\n\t\t\};',
-        dotAll: true,
-      ).firstMatch(content);
-      expect(configBlock, isNotNull, reason: 'Should find the Debug configuration block');
-
-      final blockContent = configBlock!.group(1)!;
-
-      // Verify structure: buildSettings block should contain PROVISIONING_PROFILE_SPECIFIER
-      final buildSettingsBlock = RegExp(
-        r'buildSettings = \{(.*?)\n\t\t\t\};',
-        dotAll: true,
-      ).firstMatch(blockContent);
-      expect(buildSettingsBlock, isNotNull, reason: 'Should find buildSettings block');
-
-      final buildSettingsContent = buildSettingsBlock!.group(1)!;
-      expect(buildSettingsContent.contains('PROVISIONING_PROFILE_SPECIFIER = "Test Profile";'), true,
+      // Verify PROVISIONING_PROFILE_SPECIFIER is in buildSettings
+      expect(buildSettingsContent!.contains('PROVISIONING_PROFILE_SPECIFIER = "Test Profile";'), true,
           reason: 'PROVISIONING_PROFILE_SPECIFIER should be inside buildSettings block');
-
-      // Verify that "name = Debug;" appears AFTER the buildSettings closing brace
-      final nameLineIndex = blockContent.indexOf('name = Debug;');
-      final buildSettingsClosingIndex = blockContent.indexOf('\t\t\t};'); // buildSettings closing
-      expect(nameLineIndex, greaterThan(buildSettingsClosingIndex),
-          reason: 'name = Debug; should appear after buildSettings closing brace');
 
       // Verify proper indentation (4 tabs before the property)
       expect(buildSettingsContent.contains('\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "Test Profile";'), true,
           reason: 'PROVISIONING_PROFILE_SPECIFIER should have correct indentation (4 tabs)');
+
+      // Verify that "name = Debug;" is NOT in buildSettings content (it should be outside)
+      expect(buildSettingsContent.contains('name = Debug;'), false,
+          reason: 'name = Debug; should be outside buildSettings block');
     });
   });
 }
