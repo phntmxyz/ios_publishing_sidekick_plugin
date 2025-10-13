@@ -85,7 +85,6 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
 				PRODUCT_BUNDLE_IDENTIFIER = xyz.phntm.vodafone.noascan.dev.ShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				RECEIVE_SHARE_INTENT_GROUP_ID = group.xyz.phntm.vodafone.noascan.firebase;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
@@ -112,7 +111,6 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
 				PRODUCT_BUNDLE_IDENTIFIER = xyz.phntm.vodafone.noascan.ShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				RECEIVE_SHARE_INTENT_GROUP_ID = group.xyz.phntm.vodafone.noascan.firebase;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
@@ -139,7 +137,6 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
 				PRODUCT_BUNDLE_IDENTIFIER = xyz.phntm.vodafone.noascan.profile.ShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				RECEIVE_SHARE_INTENT_GROUP_ID = group.xyz.phntm.vodafone.noascan.firebase;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;

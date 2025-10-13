@@ -271,7 +271,7 @@ class XcodePbxproj {
 
       // Find XCBuildConfiguration block and update PRODUCT_BUNDLE_IDENTIFIER
       final buildConfigBlockRegex = RegExp(
-        configId + r' \/\* ' + configName + r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\};',
+        configId + r' \/\* ' + configName + r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\t\};',
         dotAll: true,
       );
 
@@ -299,6 +299,9 @@ class XcodePbxproj {
   /// This method finds the extension target by [extensionName] and updates its
   /// provisioning profile specifier in the project.pbxproj file.
   ///
+  /// If PROVISIONING_PROFILE_SPECIFIER doesn't exist in the build configuration,
+  /// it will be automatically added.
+  ///
   /// [extensionName] is the name of the extension target (e.g., "ShareExtension").
   /// [provisioningProfileName] is the provisioning profile name to set.
   /// [buildConfiguration] optionally specifies which configuration to update ("Debug", "Release", or "Profile").
@@ -322,7 +325,6 @@ class XcodePbxproj {
   ///
   /// Throws an error if:
   /// - The extension target with [extensionName] is not found
-  /// - The PROVISIONING_PROFILE_SPECIFIER property doesn't exist in the configuration
   /// - The update fails for any reason
   void setExtensionProvisioningProfile({
     required String extensionName,
@@ -376,24 +378,30 @@ class XcodePbxproj {
 
       // Find XCBuildConfiguration block and update PROVISIONING_PROFILE_SPECIFIER
       final buildConfigBlockRegex = RegExp(
-        configId + r' \/\* ' + configName + r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\};',
+        configId + r' \/\* ' + configName + r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\t\};',
         dotAll: true,
       );
 
-      updated = updated.replaceAllMapped(buildConfigBlockRegex, (match) {
+      final match = buildConfigBlockRegex.firstMatch(updated);
+      if (match != null) {
         final buildSettingsContent = match.group(1)!;
-        final updatedBuildSettings = buildSettingsContent.replaceAll(
-          RegExp(r'PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
-          'PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";',
-        );
 
-        // If PROVISIONING_PROFILE_SPECIFIER doesn't exist, we need to add it
-        if (!buildSettingsContent.contains('PROVISIONING_PROFILE_SPECIFIER')) {
-          throw 'PROVISIONING_PROFILE_SPECIFIER not found in build configuration "$configName" for extension "$extensionName"';
+        String updatedBuildSettings;
+        if (buildSettingsContent.contains('PROVISIONING_PROFILE_SPECIFIER')) {
+          // Replace existing PROVISIONING_PROFILE_SPECIFIER
+          updatedBuildSettings = buildSettingsContent.replaceAll(
+            RegExp(r'PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
+            'PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";',
+          );
+        } else {
+          // Add PROVISIONING_PROFILE_SPECIFIER if it doesn't exist
+          // Add it at the end of the buildSettings block with proper indentation
+          updatedBuildSettings = '$buildSettingsContent\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";';
         }
 
-        return match.group(0)!.replaceFirst(buildSettingsContent, updatedBuildSettings);
-      });
+        final replacement = match.group(0)!.replaceFirst(buildSettingsContent, updatedBuildSettings);
+        updated = updated.replaceFirst(match.group(0)!, replacement);
+      }
     }
 
     file.writeAsStringSync(updated);

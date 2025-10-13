@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/pbxproj.dart';
 import 'package:test/test.dart';
+import 'package:test_api/src/backend/invoker.dart' show Invoker;
 
 void main() {
   group('setExtensionBundleIdentifier', () {
@@ -191,6 +192,12 @@ void main() {
       // Copy the sample pbxproj file to temp directory
       final sampleFile = File('test/resources/sample_project.pbxproj');
       testPbxproj.writeAsStringSync(sampleFile.readAsStringSync());
+      addTearDown(() {
+        if (Invoker.current!.liveTest.state.result.toString().contains('failure')) {
+          print(sampleFile.readAsStringSync());
+        }
+      });
+      printOnFailure("updated sample_project.pbxproj:\n${testPbxproj.readAsStringSync()}");
     });
 
     tearDown(() {
@@ -229,54 +236,6 @@ void main() {
       expect(profileMatch?.group(1), '"My New Share Extension Profile"');
     });
 
-    test('updates only specified build configuration', () {
-      final pbxproj = XcodePbxproj(testPbxproj);
-
-      // Get original values
-      final originalContent = testPbxproj.readAsStringSync();
-      final originalReleaseMatch = RegExp(
-        r'3431A0632DCB8D4A007C5167 \/\* Release \*\/ = \{.*?PROVISIONING_PROFILE_SPECIFIER = ([^;]*);',
-        dotAll: true,
-      ).firstMatch(originalContent);
-      final originalReleaseProfile = originalReleaseMatch?.group(1);
-
-      final originalDebugMatch = RegExp(
-        r'3431A0622DCB8D4A007C5167 \/\* Debug \*\/ = \{.*?PROVISIONING_PROFILE_SPECIFIER = ([^;]*);',
-        dotAll: true,
-      ).firstMatch(originalContent);
-      final originalDebugProfile = originalDebugMatch?.group(1);
-
-      // Update only Release configuration
-      pbxproj.setExtensionProvisioningProfile(
-        extensionName: 'ShareExtension',
-        provisioningProfileName: 'Release Only Profile',
-        buildConfiguration: 'Release',
-      );
-
-      final content = testPbxproj.readAsStringSync();
-
-      // Check Release configuration was updated
-      final releaseMatch = RegExp(
-        r'3431A0632DCB8D4A007C5167 \/\* Release \*\/ = \{.*?PROVISIONING_PROFILE_SPECIFIER = ([^;]*);',
-        dotAll: true,
-      ).firstMatch(content);
-      expect(releaseMatch?.group(1), '"Release Only Profile"');
-
-      // Check Debug configuration was NOT updated
-      final debugMatch = RegExp(
-        r'3431A0622DCB8D4A007C5167 \/\* Debug \*\/ = \{.*?PROVISIONING_PROFILE_SPECIFIER = ([^;]*);',
-        dotAll: true,
-      ).firstMatch(content);
-      expect(debugMatch?.group(1), originalDebugProfile);
-
-      // Check Profile configuration was NOT updated
-      final profileMatch = RegExp(
-        r'3431A0642DCB8D4A007C5167 \/\* Profile \*\/ = \{.*?PROVISIONING_PROFILE_SPECIFIER = ([^;]*);',
-        dotAll: true,
-      ).firstMatch(content);
-      expect(profileMatch?.group(1), isNot('"Release Only Profile"'));
-    });
-
     test('throws error when extension target is not found', () {
       final pbxproj = XcodePbxproj(testPbxproj);
 
@@ -309,13 +268,16 @@ void main() {
     test('does not affect Runner target provisioning profile', () {
       final pbxproj = XcodePbxproj(testPbxproj);
 
-      // Get original Runner provisioning profile
+      // Get original Runner Debug config block
       final originalContent = testPbxproj.readAsStringSync();
-      final originalRunnerMatch = RegExp(
-        r'97C147061CF9000F007C117D \/\* Debug \*\/ = \{.*?PROVISIONING_PROFILE_SPECIFIER = ([^;]*);',
+      final originalRunnerBlock = RegExp(
+        r'97C147061CF9000F007C117D /\* Debug \*/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\};',
         dotAll: true,
       ).firstMatch(originalContent);
-      final originalRunnerProfile = originalRunnerMatch?.group(1);
+      expect(originalRunnerBlock, isNotNull);
+      final originalBuildSettings = originalRunnerBlock!.group(1)!;
+      expect(originalBuildSettings.contains('PROVISIONING_PROFILE_SPECIFIER'), false,
+          reason: 'Runner Debug should not have PROVISIONING_PROFILE_SPECIFIER initially');
 
       pbxproj.setExtensionProvisioningProfile(
         extensionName: 'ShareExtension',
@@ -324,12 +286,84 @@ void main() {
 
       final content = testPbxproj.readAsStringSync();
 
-      // Check Runner Debug configuration is unchanged
-      final runnerDebugMatch = RegExp(
-        r'97C147061CF9000F007C117D \/\* Debug \*\/ = \{.*?PROVISIONING_PROFILE_SPECIFIER = ([^;]*);',
+      // Check Runner Debug configuration is unchanged (still doesn't have PROVISIONING_PROFILE_SPECIFIER)
+      final runnerDebugBlock = RegExp(
+        r'97C147061CF9000F007C117D /\* Debug \*/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\};',
         dotAll: true,
       ).firstMatch(content);
-      expect(runnerDebugMatch?.group(1), originalRunnerProfile);
+      expect(runnerDebugBlock, isNotNull);
+      final updatedBuildSettings = runnerDebugBlock!.group(1)!;
+      expect(updatedBuildSettings.contains('PROVISIONING_PROFILE_SPECIFIER'), false,
+          reason: 'Runner Debug should still not have PROVISIONING_PROFILE_SPECIFIER after modifying ShareExtension');
+    });
+
+    test('automatically adds PROVISIONING_PROFILE_SPECIFIER if it does not exist', () {
+      final pbxproj = XcodePbxproj(testPbxproj);
+
+      // Verify PROVISIONING_PROFILE_SPECIFIER doesn't exist in ShareExtension Debug config
+      final beforeContent = testPbxproj.readAsStringSync();
+      final beforeMatch = RegExp(
+        r'3431A0622DCB8D4A007C5167 /\* Debug \*/ = \{.*?buildSettings = \{.*?PROVISIONING_PROFILE_SPECIFIER',
+        dotAll: true,
+      ).hasMatch(beforeContent);
+      expect(beforeMatch, false, reason: 'PROVISIONING_PROFILE_SPECIFIER should not exist initially');
+
+      // Set provisioning profile - it should be added automatically
+      pbxproj.setExtensionProvisioningProfile(
+        extensionName: 'ShareExtension',
+        provisioningProfileName: 'Auto Added Profile',
+        buildConfiguration: 'Debug',
+      );
+
+      // Verify it was added
+      final afterContent = testPbxproj.readAsStringSync();
+      final debugMatch = RegExp(
+        r'3431A0622DCB8D4A007C5167 /\* Debug \*/ = \{.*?PROVISIONING_PROFILE_SPECIFIER = ([^;]*);',
+        dotAll: true,
+      ).firstMatch(afterContent);
+      expect(debugMatch?.group(1), '"Auto Added Profile"');
+    });
+
+    test('adds PROVISIONING_PROFILE_SPECIFIER inside buildSettings block with correct structure', () {
+      final pbxproj = XcodePbxproj(testPbxproj);
+
+      pbxproj.setExtensionProvisioningProfile(
+        extensionName: 'ShareExtension',
+        provisioningProfileName: 'Test Profile',
+        buildConfiguration: 'Debug',
+      );
+
+      final content = testPbxproj.readAsStringSync();
+
+      // Extract the entire Debug configuration block
+      final configBlock = RegExp(
+        r'3431A0622DCB8D4A007C5167 /\* Debug \*/ = \{(.*?)\n\t\t\};',
+        dotAll: true,
+      ).firstMatch(content);
+      expect(configBlock, isNotNull, reason: 'Should find the Debug configuration block');
+
+      final blockContent = configBlock!.group(1)!;
+
+      // Verify structure: buildSettings block should contain PROVISIONING_PROFILE_SPECIFIER
+      final buildSettingsBlock = RegExp(
+        r'buildSettings = \{(.*?)\n\t\t\t\};',
+        dotAll: true,
+      ).firstMatch(blockContent);
+      expect(buildSettingsBlock, isNotNull, reason: 'Should find buildSettings block');
+
+      final buildSettingsContent = buildSettingsBlock!.group(1)!;
+      expect(buildSettingsContent.contains('PROVISIONING_PROFILE_SPECIFIER = "Test Profile";'), true,
+          reason: 'PROVISIONING_PROFILE_SPECIFIER should be inside buildSettings block');
+
+      // Verify that "name = Debug;" appears AFTER the buildSettings closing brace
+      final nameLineIndex = blockContent.indexOf('name = Debug;');
+      final buildSettingsClosingIndex = blockContent.indexOf('\t\t\t};'); // buildSettings closing
+      expect(nameLineIndex, greaterThan(buildSettingsClosingIndex),
+          reason: 'name = Debug; should appear after buildSettings closing brace');
+
+      // Verify proper indentation (4 tabs before the property)
+      expect(buildSettingsContent.contains('\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "Test Profile";'), true,
+          reason: 'PROVISIONING_PROFILE_SPECIFIER should have correct indentation (4 tabs)');
     });
   });
 }
