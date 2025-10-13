@@ -1,4 +1,7 @@
+import 'dart:js_interop';
+
 import 'package:sidekick_core/sidekick_core.dart';
+import 'package:xcode_parser/xcode_parser.dart';
 
 class XcodePbxproj {
   final File file;
@@ -227,75 +230,131 @@ class XcodePbxproj {
     file.verifyExistsOrThrow();
 
     print('Setting Bundle ID for extension "$extensionName" to "$bundleIdentifier"');
-    final content = file.readAsStringSync();
 
-    // Step 1: Find PBXNativeTarget with matching extensionName and extract buildConfigurationList ID
-    final targetRegex = RegExp(
-      r'\/\* ' + RegExp.escape(extensionName) + r' \*\/ = \{[^}]*isa = PBXNativeTarget;[^}]*buildConfigurationList = ([A-F0-9]+)',
-      dotAll: true,
-    );
-    final targetMatch = targetRegex.firstMatch(content);
-    if (targetMatch == null) {
+    // Parse the pbxproj file using xcode_parser
+    final content = file.readAsStringSync();
+    final pbxproj = Pbxproj.parse(content, path: file.path);
+
+    // Step 1: Find the objects map
+    final objects = pbxproj.find<MapPbx>('objects');
+    if (objects == null) {
+      throw 'Could not find objects section in project.pbxproj';
+    }
+
+    // Step 2: Find the PBXNativeTarget section
+    final nativeTargetSection = objects.findComment<SectionPbx>('PBXNativeTarget');
+    if (nativeTargetSection == null) {
+      throw 'Could not find PBXNativeTarget section in project.pbxproj';
+    }
+
+    // Step 3: Find the target with the matching name
+    MapPbx? targetMap;
+    String? configListId;
+
+    for (final child in nativeTargetSection.childrenList) {
+      if (child is MapPbx) {
+        final nameEntry = child.find<MapEntryPbx>('name');
+        if (nameEntry?.value.toString() == extensionName) {
+          targetMap = child;
+          final configListEntry = child.find<MapEntryPbx>('buildConfigurationList');
+          if (configListEntry != null) {
+            // Extract UUID from the value (e.g., "3431A0652DCB8D4A007C5167 /* comment */")
+            final configListValue = configListEntry.value.toString();
+            final uuidMatch = RegExp(r'^([A-F0-9]{24})').firstMatch(configListValue);
+            if (uuidMatch != null) {
+              configListId = uuidMatch.group(1);
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    if (targetMap == null || configListId == null) {
       throw 'Could not find PBXNativeTarget with name "$extensionName" in project.pbxproj';
     }
-    final configListId = targetMatch.group(1)!;
 
-    // Step 2: Find XCConfigurationList with that ID and extract build configuration IDs
-    final configListRegex = RegExp(
-      configListId + r' \/\* Build configuration list[^}]*buildConfigurations = \([^)]*\)',
-      dotAll: true,
-    );
-    final configListMatch = configListRegex.firstMatch(content);
-    if (configListMatch == null) {
+    // Step 4: Find the XCConfigurationList section
+    final configListSection = objects.findComment<SectionPbx>('XCConfigurationList');
+    if (configListSection == null) {
+      throw 'Could not find XCConfigurationList section in project.pbxproj';
+    }
+
+    // Step 4: Find the configuration list with the matching UUID
+    MapPbx? configList = configListSection.find<MapPbx>(configListId);
+    if (configList == null) {
       throw 'Could not find XCConfigurationList with ID "$configListId" in project.pbxproj';
     }
 
-    // Extract build configuration IDs (e.g., "3431A0622DCB8D4A007C5167 /* Debug */")
-    final buildConfigRegex = RegExp(r'([A-F0-9]+) \/\* (Debug|Release|Profile) \*\/');
-    final buildConfigs = buildConfigRegex.allMatches(configListMatch.group(0)!);
-
-    if (buildConfigs.isEmpty) {
+    // Step 5: Extract build configuration IDs from buildConfigurations list
+    final buildConfigsList = configList.find<ListPbx>('buildConfigurations');
+    if (buildConfigsList == null || buildConfigsList.length == 0) {
       throw 'Could not find any build configurations for extension "$extensionName"';
     }
 
-    // Step 3: For each build configuration (or specific one), update PRODUCT_BUNDLE_IDENTIFIER
-    var updated = content;
-    for (final configMatch in buildConfigs) {
-      final configId = configMatch.group(1)!;
-      final configName = configMatch.group(2)!;
+    final buildConfigIds = <String>[];
+    for (var i = 0; i < buildConfigsList.length; i++) {
+      final element = buildConfigsList[i] as ElementOfListPbx;
+      // Extract UUID from ElementOfListPbx (e.g., "3431A0622DCB8D4A007C5167 /* Debug */")
+      final uuidMatch = RegExp(r'^([A-F0-9]{24})').firstMatch(element.value);
+      if (uuidMatch != null) {
+        buildConfigIds.add(uuidMatch.group(1)!);
+      }
+    }
+
+    if (buildConfigIds.isEmpty) {
+      throw 'Could not find any build configuration IDs for extension "$extensionName"';
+    }
+
+    // Step 6: Find the XCBuildConfiguration section
+    final buildConfigSection = objects.findComment<SectionPbx>('XCBuildConfiguration');
+    if (buildConfigSection == null) {
+      throw 'Could not find XCBuildConfiguration section in project.pbxproj';
+    }
+
+    // Step 7: For each build configuration ID, update PRODUCT_BUNDLE_IDENTIFIER
+    var updated = false;
+    for (final configId in buildConfigIds) {
+      final buildConfig = buildConfigSection.find<MapPbx>(configId);
+      if (buildConfig == null) {
+        continue;
+      }
+
+      // Get the configuration name (Debug/Release/Profile)
+      final nameEntry = buildConfig.find<MapEntryPbx>('name');
+      final configName = nameEntry?.value.toString();
 
       // Skip if buildConfiguration is specified and doesn't match
       if (buildConfiguration != null && configName != buildConfiguration) {
         continue;
       }
 
-      // Find XCBuildConfiguration block and update PRODUCT_BUNDLE_IDENTIFIER
-      final buildConfigBlockRegex = RegExp(
-        configId + r' \/\* ' + configName + r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\};',
-        dotAll: true,
+      // Find buildSettings map
+      final buildSettings = buildConfig.find<MapPbx>('buildSettings');
+      if (buildSettings == null) {
+        continue;
+      }
+
+      // Find PRODUCT_BUNDLE_IDENTIFIER entry
+      final bundleIdEntry = buildSettings.find<MapEntryPbx>('PRODUCT_BUNDLE_IDENTIFIER');
+      if (bundleIdEntry == null) {
+        throw 'PRODUCT_BUNDLE_IDENTIFIER not found in build configuration "$configName" for extension "$extensionName"';
+      }
+      // Update the value
+      final newBundleIdEntry = MapEntryPbx(
+        'PRODUCT_BUNDLE_IDENTIFIER',
+        VarPbx(bundleIdentifier),
       );
-
-      updated = updated.replaceAllMapped(buildConfigBlockRegex, (match) {
-        final buildSettingsContent = match.group(1)!;
-        final updatedBuildSettings = buildSettingsContent.replaceAll(
-          RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;'),
-          'PRODUCT_BUNDLE_IDENTIFIER = $bundleIdentifier;',
-        );
-
-        // If PRODUCT_BUNDLE_IDENTIFIER doesn't exist, we need to add it
-        if (!buildSettingsContent.contains('PRODUCT_BUNDLE_IDENTIFIER')) {
-          throw 'PRODUCT_BUNDLE_IDENTIFIER not found in build configuration "$configName" for extension "$extensionName"';
-        }
-
-        return match.group(0)!.replaceFirst(buildSettingsContent, updatedBuildSettings);
-      });
+      buildSettings.replaceOrAdd(newBundleIdEntry);
+      updated = true;
     }
 
-    if (updated == content) {
+    if (!updated) {
       throw 'Failed to update PRODUCT_BUNDLE_IDENTIFIER for extension "$extensionName"';
     }
 
-    file.writeAsStringSync(updated);
+    // Save the modified pbxproj
+    file.writeAsStringSync(pbxproj.toString());
   }
 
   /// Sets the PROVISIONING_PROFILE_SPECIFIER for a specific extension target.
@@ -339,19 +398,23 @@ class XcodePbxproj {
     final content = file.readAsStringSync();
 
     // Step 1: Find PBXNativeTarget with matching extensionName and extract buildConfigurationList ID
+    // Format: UUID ... = { isa = PBXNativeTarget; ... buildConfigurationList = UUID; ... name = ExtensionName; ... };
     final targetRegex = RegExp(
-      r'\/\* ' + RegExp.escape(extensionName) + r' \*\/ = \{[^}]*isa = PBXNativeTarget;[^}]*buildConfigurationList = ([A-F0-9]+)',
+      '([A-F0-9]+)[^=]*=[^{]*\\{[^}]*isa = PBXNativeTarget;[^}]*buildConfigurationList = ([A-F0-9]+)[^}]*name = ' +
+          RegExp.escape(extensionName) +
+          ';',
       dotAll: true,
     );
     final targetMatch = targetRegex.firstMatch(content);
     if (targetMatch == null) {
       throw 'Could not find PBXNativeTarget with name "$extensionName" in project.pbxproj';
     }
-    final configListId = targetMatch.group(1)!;
+    final configListId = targetMatch.group(2)!;
 
     // Step 2: Find XCConfigurationList with that ID and extract build configuration IDs
+    // Format: UUID ... = { isa = XCConfigurationList; buildConfigurations = ( UUID, UUID, ... ); ... };
     final configListRegex = RegExp(
-      configListId + r' \/\* Build configuration list[^}]*buildConfigurations = \([^)]*\)',
+      configListId + '[^=]*=[^{]*\\{[^}]*isa = XCConfigurationList;[^}]*buildConfigurations = \\(([^)]*)\\)',
       dotAll: true,
     );
     final configListMatch = configListRegex.firstMatch(content);
@@ -359,45 +422,52 @@ class XcodePbxproj {
       throw 'Could not find XCConfigurationList with ID "$configListId" in project.pbxproj';
     }
 
-    // Extract build configuration IDs (e.g., "3431A0622DCB8D4A007C5167 /* Debug */")
-    final buildConfigRegex = RegExp(r'([A-F0-9]+) \/\* (Debug|Release|Profile) \*\/');
-    final buildConfigs = buildConfigRegex.allMatches(configListMatch.group(0)!);
+    // Extract build configuration IDs from the buildConfigurations array
+    final buildConfigsText = configListMatch.group(1)!;
+    final buildConfigIdRegex = RegExp(r'([A-F0-9]{24})');
+    final buildConfigIds = buildConfigIdRegex.allMatches(buildConfigsText).map((m) => m.group(1)!).toList();
 
-    if (buildConfigs.isEmpty) {
+    if (buildConfigIds.isEmpty) {
       throw 'Could not find any build configurations for extension "$extensionName"';
     }
 
-    // Step 3: For each build configuration (or specific one), update PROVISIONING_PROFILE_SPECIFIER
+    // Step 3: For each build configuration ID, find its name and update PROVISIONING_PROFILE_SPECIFIER
     var updated = content;
-    for (final configMatch in buildConfigs) {
-      final configId = configMatch.group(1)!;
-      final configName = configMatch.group(2)!;
+    for (final configId in buildConfigIds) {
+      // Find XCBuildConfiguration block to get the configuration name
+      // Format: UUID ... = { isa = XCBuildConfiguration; ... buildSettings = { ... }; name = Debug; };
+      final buildConfigBlockRegex = RegExp(
+        configId +
+            '[^=]*=[^{]*\\{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \\{(.*?)\\n\\t\\t\\t\\};\\n\\t\\t\\tname = (Debug|Release|Profile);',
+        dotAll: true,
+      );
+
+      final blockMatch = buildConfigBlockRegex.firstMatch(updated);
+      if (blockMatch == null) {
+        continue; // Skip if we can't find this config block
+      }
+
+      final buildSettingsContent = blockMatch.group(1)!;
+      final configName = blockMatch.group(2)!;
 
       // Skip if buildConfiguration is specified and doesn't match
       if (buildConfiguration != null && configName != buildConfiguration) {
         continue;
       }
 
-      // Find XCBuildConfiguration block and update PROVISIONING_PROFILE_SPECIFIER
-      final buildConfigBlockRegex = RegExp(
-        configId + r' \/\* ' + configName + r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\};',
-        dotAll: true,
+      // Update PROVISIONING_PROFILE_SPECIFIER in buildSettings
+      final updatedBuildSettings = buildSettingsContent.replaceAll(
+        RegExp(r'PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
+        'PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";',
       );
 
-      updated = updated.replaceAllMapped(buildConfigBlockRegex, (match) {
-        final buildSettingsContent = match.group(1)!;
-        final updatedBuildSettings = buildSettingsContent.replaceAll(
-          RegExp(r'PROVISIONING_PROFILE_SPECIFIER = [^;]*;'),
-          'PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";',
-        );
+      // If PROVISIONING_PROFILE_SPECIFIER doesn't exist, we need to add it
+      if (!buildSettingsContent.contains('PROVISIONING_PROFILE_SPECIFIER')) {
+        throw 'PROVISIONING_PROFILE_SPECIFIER not found in build configuration "$configName" for extension "$extensionName"';
+      }
 
-        // If PROVISIONING_PROFILE_SPECIFIER doesn't exist, we need to add it
-        if (!buildSettingsContent.contains('PROVISIONING_PROFILE_SPECIFIER')) {
-          throw 'PROVISIONING_PROFILE_SPECIFIER not found in build configuration "$configName" for extension "$extensionName"';
-        }
-
-        return match.group(0)!.replaceFirst(buildSettingsContent, updatedBuildSettings);
-      });
+      updated = updated.replaceFirst(
+          blockMatch.group(0)!, blockMatch.group(0)!.replaceFirst(buildSettingsContent, updatedBuildSettings));
     }
 
     if (updated == content) {

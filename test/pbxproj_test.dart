@@ -306,16 +306,16 @@ void main() {
       expect(newContent, contains('RECEIVE_SHARE_INTENT_GROUP_ID = group.xyz.phntm.vodafone.noascan.firebase;'));
     });
 
-    test('does not affect Runner target provisioning profile', () {
+    test('does not affect Runner target bundle identifier', () {
       final pbxproj = XcodePbxproj(testPbxproj);
 
-      // Get original Runner provisioning profile
+      // Get original Runner bundle identifier
       final originalContent = testPbxproj.readAsStringSync();
       final originalRunnerMatch = RegExp(
-        r'97C147061CF9000F007C117D \/\* Debug \*\/ = \{.*?PROVISIONING_PROFILE_SPECIFIER = ([^;]*);',
+        r'97C147061CF9000F007C117D \/\* Debug \*\/ = \{.*?PRODUCT_BUNDLE_IDENTIFIER = ([^;]*);',
         dotAll: true,
       ).firstMatch(originalContent);
-      final originalRunnerProfile = originalRunnerMatch?.group(1);
+      final originalRunnerBundleId = originalRunnerMatch?.group(1);
 
       pbxproj.setExtensionProvisioningProfile(
         extensionName: 'ShareExtension',
@@ -324,12 +324,13 @@ void main() {
 
       final content = testPbxproj.readAsStringSync();
 
-      // Check Runner Debug configuration is unchanged
+      // Check Runner Debug configuration bundle identifier is unchanged
       final runnerDebugMatch = RegExp(
-        r'97C147061CF9000F007C117D \/\* Debug \*\/ = \{.*?PROVISIONING_PROFILE_SPECIFIER = ([^;]*);',
+        r'97C147061CF9000F007C117D \/\* Debug \*\/ = \{.*?PRODUCT_BUNDLE_IDENTIFIER = ([^;]*);',
         dotAll: true,
       ).firstMatch(content);
-      expect(runnerDebugMatch?.group(1), originalRunnerProfile);
+      expect(runnerDebugMatch?.group(1), originalRunnerBundleId);
+      expect(runnerDebugMatch?.group(1), 'com.example.runner');
     });
   });
 }
