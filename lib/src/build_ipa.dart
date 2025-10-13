@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:dcli/dcli.dart';
 import 'package:phntmxyz_ios_publishing_sidekick_plugin/src/apple/export_options.dart';
@@ -165,12 +164,27 @@ Future<void> _xcodeBuildArchive({
   final completer = Completer<void>();
   Timer? timeoutTimer;
   Process? process;
+  StreamSubscription<String>? stdoutSubscription;
+  StreamSubscription<String>? stderrSubscription;
+
+  void cleanup() {
+    if (timeoutTimer != null) {
+      timeoutTimer?.cancel();
+    }
+    if (stdoutSubscription != null) {
+      stdoutSubscription.cancel();
+    }
+    if (stderrSubscription != null) {
+      stderrSubscription.cancel();
+    }
+  }
 
   void restartTimeoutTimer() {
     timeoutTimer?.cancel();
     if (completer.isCompleted) return;
     // xcodebuild prints a lot, being silent for a while is not a good sign
     timeoutTimer = Timer(silenceTimeout, () {
+      cleanup();
       completer.completeError(XcodeBuildArchiveTimeoutException());
       process?.kill();
     });
@@ -184,14 +198,10 @@ Future<void> _xcodeBuildArchive({
     ...['-configuration', 'Release'],
     ...['-archivePath', archiveOutput.path],
     'CODE_SIGN_STYLE=Manual',
-    // KEINE GLOBALE PROVISIONING_PROFILE - pbxproj hat die richtigen target-spezifischen!
     'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
     'DEVELOPMENT_TEAM=${provisioningProfile.teamIdentifier}',
-    // KEIN GLOBALES PRODUCT_BUNDLE_IDENTIFIER - würde alle Targets überschreiben!
-    // pbxproj hat die richtigen target-spezifischen Bundle IDs
   ];
 
-  // Target-spezifische Bundle IDs für ALLE Targets hinzufügen (statt globalem Parameter)
   args.add('Runner:PRODUCT_BUNDLE_IDENTIFIER=$bundleIdentifier');
   print('Setting Bundle ID for Runner: $bundleIdentifier');
 
@@ -208,19 +218,19 @@ Future<void> _xcodeBuildArchive({
     args,
     workingDirectory: xcodeWorkspace.parent.path,
   );
-  process.stdout.transform(utf8.decoder).listen((line) {
+  stdoutSubscription = process.stdout.transform(utf8.decoder).listen((line) {
     if (completer.isCompleted) return;
     print(line);
     restartTimeoutTimer();
   });
-  process.stderr.transform(utf8.decoder).listen((line) {
+  stderrSubscription = process.stderr.transform(utf8.decoder).listen((line) {
     if (completer.isCompleted) return;
     printerr(line);
     restartTimeoutTimer();
   });
   await process.exitCode.then((exitCode) {
+    cleanup();
     if (exitCode == 0) {
-      timeoutTimer?.cancel();
       completer.complete();
     } else {
       completer.completeError('xcodebuild archive failed with exit code $exitCode');
