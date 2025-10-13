@@ -1,5 +1,13 @@
 import 'dart:io';
 
+/// Extracts certificate information from a P12 (PKCS#12) certificate file.
+///
+/// Uses OpenSSL to read the [certificate] and extract the friendly name and local key ID.
+/// Automatically handles legacy Apple certificates by retrying with the `-legacy` flag if needed.
+///
+/// The optional [password] is used to decrypt the certificate (defaults to empty string).
+///
+/// Throws when OpenSSL fails to read the certificate.
 Future<P12CertificateInfo> readP12CertificateInfo(
   File certificate, {
   String? password,
