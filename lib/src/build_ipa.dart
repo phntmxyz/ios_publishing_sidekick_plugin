@@ -18,6 +18,14 @@ import 'package:sidekick_core/sidekick_core.dart';
 ///
 /// [newKeychain] defaults to `false` but should be set to `true` on CI
 ///
+/// [additionalProvisioningProfiles] is an optional map of bundle identifiers to provisioning profiles
+/// for additional targets (e.g., app extensions like ShareExtension). The keys are the bundle identifiers
+/// and the values are the corresponding provisioning profiles.
+///
+/// [targetBundleIds] is an optional map of target names to bundle identifiers. This allows you to
+/// override the bundle identifier for specific targets during the build. The keys are the target names
+/// (e.g., 'ShareExtension') and the values are the bundle identifiers to use for those targets.
+///
 /// Adjust [archiveSilenceTimeout] depending on your CI system. It is the time of the
 /// `xcodebuild archive` process not outputting anything to stdout or stderr.
 /// When it stops outputting (because it waits for a password input in the UI),
@@ -209,9 +217,13 @@ Future<void> _xcodeBuildArchive({
     'DEVELOPMENT_TEAM=${provisioningProfile.teamIdentifier}',
   ];
 
+  // Override bundle identifier for the main Runner target
+  // We pass build settings in the format TargetName:BUILD_SETTING=value to xcodebuild.
+  // This allows us to set different bundle identifiers for different targets in a single build.
   args.add('Runner:PRODUCT_BUNDLE_IDENTIFIER=$bundleIdentifier');
   print('Setting Bundle ID for Runner: $bundleIdentifier');
 
+  // Override bundle identifiers for additional targets (e.g., app extensions)
   if (targetBundleIds != null) {
     for (final entry in targetBundleIds.entries) {
       args.add('${entry.key}:PRODUCT_BUNDLE_IDENTIFIER=${entry.value}');
