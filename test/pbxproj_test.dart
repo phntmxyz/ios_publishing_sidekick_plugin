@@ -23,7 +23,9 @@ void main() {
       tempDir.deleteSync(recursive: true);
     });
 
-    test('updates all build configurations when buildConfiguration is not specified', () {
+    test(
+        'updates all build configurations when buildConfiguration is not specified',
+        () {
       final pbxproj = XcodePbxproj(testPbxproj);
 
       pbxproj.setExtensionBundleIdentifier(
@@ -116,7 +118,8 @@ void main() {
           extensionName: 'NonExistentExtension',
           bundleIdentifier: 'com.test.Extension',
         ),
-        throwsA(contains('Could not find PBXNativeTarget with name "NonExistentExtension"')),
+        throwsA(contains(
+            'Could not find PBXNativeTarget with name "NonExistentExtension"')),
       );
     });
 
@@ -134,7 +137,10 @@ void main() {
       expect(newContent, contains('DEVELOPMENT_TEAM = 7M6S7TXG8N;'));
       expect(newContent, contains('SWIFT_VERSION = 5.0;'));
       expect(newContent, contains('CODE_SIGN_IDENTITY = "Apple Development";'));
-      expect(newContent, contains('RECEIVE_SHARE_INTENT_GROUP_ID = group.xyz.phntm.vodafone.noascan.firebase;'));
+      expect(
+          newContent,
+          contains(
+              'RECEIVE_SHARE_INTENT_GROUP_ID = group.xyz.phntm.vodafone.noascan.firebase;'));
     });
 
     test('does not affect Runner target bundle identifier', () {
@@ -192,18 +198,23 @@ void main() {
       final sampleFile = File('test/resources/sample_project.pbxproj');
       testPbxproj.writeAsStringSync(sampleFile.readAsStringSync());
       addTearDown(() {
-        if (Invoker.current!.liveTest.state.result.toString().contains('failure')) {
+        if (Invoker.current!.liveTest.state.result
+            .toString()
+            .contains('failure')) {
           print(sampleFile.readAsStringSync());
         }
       });
-      printOnFailure("updated sample_project.pbxproj:\n${testPbxproj.readAsStringSync()}");
+      printOnFailure(
+          "updated sample_project.pbxproj:\n${testPbxproj.readAsStringSync()}");
     });
 
     tearDown(() {
       tempDir.deleteSync(recursive: true);
     });
 
-    test('updates all build configurations when buildConfiguration is not specified', () {
+    test(
+        'updates all build configurations when buildConfiguration is not specified',
+        () {
       final pbxproj = XcodePbxproj(testPbxproj);
 
       pbxproj.setExtensionProvisioningProfile(
@@ -243,7 +254,8 @@ void main() {
           extensionName: 'NonExistentExtension',
           provisioningProfileName: 'Test Profile',
         ),
-        throwsA(contains('Could not find PBXNativeTarget with name "NonExistentExtension"')),
+        throwsA(contains(
+            'Could not find PBXNativeTarget with name "NonExistentExtension"')),
       );
     });
 
@@ -261,7 +273,10 @@ void main() {
       expect(newContent, contains('DEVELOPMENT_TEAM = 7M6S7TXG8N;'));
       expect(newContent, contains('SWIFT_VERSION = 5.0;'));
       expect(newContent, contains('CODE_SIGN_IDENTITY = "Apple Development";'));
-      expect(newContent, contains('RECEIVE_SHARE_INTENT_GROUP_ID = group.xyz.phntm.vodafone.noascan.firebase;'));
+      expect(
+          newContent,
+          contains(
+              'RECEIVE_SHARE_INTENT_GROUP_ID = group.xyz.phntm.vodafone.noascan.firebase;'));
     });
 
     test('does not affect Runner target provisioning profile', () {
@@ -273,8 +288,10 @@ void main() {
         buildConfiguration: 'Debug',
       );
       expect(originalBuildSettings, isNotNull);
-      expect(originalBuildSettings!.contains('PROVISIONING_PROFILE_SPECIFIER'), false,
-          reason: 'Runner Debug should not have PROVISIONING_PROFILE_SPECIFIER initially');
+      expect(originalBuildSettings!.contains('PROVISIONING_PROFILE_SPECIFIER'),
+          false,
+          reason:
+              'Runner Debug should not have PROVISIONING_PROFILE_SPECIFIER initially');
 
       pbxproj.setExtensionProvisioningProfile(
         extensionName: 'ShareExtension',
@@ -287,11 +304,15 @@ void main() {
         buildConfiguration: 'Debug',
       );
       expect(updatedBuildSettings, isNotNull);
-      expect(updatedBuildSettings!.contains('PROVISIONING_PROFILE_SPECIFIER'), false,
-          reason: 'Runner Debug should still not have PROVISIONING_PROFILE_SPECIFIER after modifying ShareExtension');
+      expect(updatedBuildSettings!.contains('PROVISIONING_PROFILE_SPECIFIER'),
+          false,
+          reason:
+              'Runner Debug should still not have PROVISIONING_PROFILE_SPECIFIER after modifying ShareExtension');
     });
 
-    test('automatically adds PROVISIONING_PROFILE_SPECIFIER if it does not exist', () {
+    test(
+        'automatically adds PROVISIONING_PROFILE_SPECIFIER if it does not exist',
+        () {
       final pbxproj = XcodePbxproj(testPbxproj);
 
       // Verify PROVISIONING_PROFILE_SPECIFIER doesn't exist in ShareExtension Debug config
@@ -300,7 +321,8 @@ void main() {
         r'3431A0622DCB8D4A007C5167 /\* Debug \*/ = \{.*?buildSettings = \{.*?PROVISIONING_PROFILE_SPECIFIER',
         dotAll: true,
       ).hasMatch(beforeContent);
-      expect(beforeMatch, false, reason: 'PROVISIONING_PROFILE_SPECIFIER should not exist initially');
+      expect(beforeMatch, false,
+          reason: 'PROVISIONING_PROFILE_SPECIFIER should not exist initially');
 
       // Set provisioning profile - it should be added automatically
       pbxproj.setExtensionProvisioningProfile(
@@ -318,7 +340,9 @@ void main() {
       expect(debugMatch?.group(1), '"Auto Added Profile"');
     });
 
-    test('adds PROVISIONING_PROFILE_SPECIFIER inside buildSettings block with correct structure', () {
+    test(
+        'adds PROVISIONING_PROFILE_SPECIFIER inside buildSettings block with correct structure',
+        () {
       final pbxproj = XcodePbxproj(testPbxproj);
 
       pbxproj.setExtensionProvisioningProfile(
@@ -332,15 +356,24 @@ void main() {
         targetName: 'ShareExtension',
         buildConfiguration: 'Debug',
       );
-      expect(buildSettingsContent, isNotNull, reason: 'Should find ShareExtension Debug buildSettings');
+      expect(buildSettingsContent, isNotNull,
+          reason: 'Should find ShareExtension Debug buildSettings');
 
       // Verify PROVISIONING_PROFILE_SPECIFIER is in buildSettings
-      expect(buildSettingsContent!.contains('PROVISIONING_PROFILE_SPECIFIER = "Test Profile";'), true,
-          reason: 'PROVISIONING_PROFILE_SPECIFIER should be inside buildSettings block');
+      expect(
+          buildSettingsContent!
+              .contains('PROVISIONING_PROFILE_SPECIFIER = "Test Profile";'),
+          true,
+          reason:
+              'PROVISIONING_PROFILE_SPECIFIER should be inside buildSettings block');
 
       // Verify proper indentation (4 tabs before the property)
-      expect(buildSettingsContent.contains('\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "Test Profile";'), true,
-          reason: 'PROVISIONING_PROFILE_SPECIFIER should have correct indentation (4 tabs)');
+      expect(
+          buildSettingsContent.contains(
+              '\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "Test Profile";'),
+          true,
+          reason:
+              'PROVISIONING_PROFILE_SPECIFIER should have correct indentation (4 tabs)');
 
       // Verify that "name = Debug;" is NOT in buildSettings content (it should be outside)
       expect(buildSettingsContent.contains('name = Debug;'), false,

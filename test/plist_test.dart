@@ -68,7 +68,8 @@ void main() {
         plist.setAppGroupId('group.com.example-app.share');
 
         final content = testPlist.readAsStringSync();
-        expect(content, contains('<string>group.com.example-app.share</string>'));
+        expect(
+            content, contains('<string>group.com.example-app.share</string>'));
       });
     });
 
