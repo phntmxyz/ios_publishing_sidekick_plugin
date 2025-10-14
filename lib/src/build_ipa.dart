@@ -226,6 +226,12 @@ Future<void> _xcodeBuildArchive({
   // Override bundle identifiers for additional targets (e.g., app extensions)
   if (targetBundleIds != null) {
     for (final entry in targetBundleIds.entries) {
+      if (entry.key.contains(':')) {
+        throw ArgumentError(
+          'Target name "${entry.key}" must not contain colons (:). '
+          'Colons are used as delimiters in xcodebuild arguments.',
+        );
+      }
       args.add('${entry.key}:PRODUCT_BUNDLE_IDENTIFIER=${entry.value}');
       print('Setting Bundle ID for ${entry.key}: ${entry.value}');
     }
