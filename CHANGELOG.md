@@ -1,7 +1,6 @@
 # Changelog
 
-## 2.0.0
-- Make `readP12CertificateInfo` async
+## 1.0.1
 - Fix port leak in `readP12CertificateInfo` which prevented the Dart VM from exiting (cli hangs after completion)
 
 ## 1.0.0

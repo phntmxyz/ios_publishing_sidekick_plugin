@@ -41,7 +41,7 @@ Future<File> buildIpa({
 
   installProvisioningProfile(provisioningProfile);
   final certificateInfo =
-      await readP12CertificateInfo(certificate, password: certificatePassword);
+      readP12CertificateInfo(certificate, password: certificatePassword);
 
   final keyChain = () {
     final bool isCi = env['CI'] == 'true';
