@@ -229,7 +229,7 @@ Future<void> _xcodeBuildArchive({
       if (entry.key.contains(':')) {
         throw ArgumentError(
           'Target name "${entry.key}" must not contain colons (:). '
-          'Colons are used as delimiters in xcodebuild arguments.',
+              'Colons are used as delimiters in xcodebuild arguments.',
         );
       }
       args.add('${entry.key}:PRODUCT_BUNDLE_IDENTIFIER=${entry.value}');

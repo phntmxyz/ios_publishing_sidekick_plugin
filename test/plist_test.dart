@@ -45,7 +45,8 @@ void main() {
 
       test('throws error when app groups key is missing', () {
         // Create a plist without app groups
-        testPlist.writeAsStringSync('''<?xml version="1.0" encoding="UTF-8"?>
+        testPlist.writeAsStringSync('''
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -95,7 +96,8 @@ void main() {
       });
 
       test('throws error when CFBundleIdentifier key is missing', () {
-        testPlist.writeAsStringSync('''<?xml version="1.0" encoding="UTF-8"?>
+        testPlist.writeAsStringSync('''
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -125,7 +127,8 @@ void main() {
       });
 
       test('throws error when CFBundleDisplayName key is missing', () {
-        testPlist.writeAsStringSync('''<?xml version="1.0" encoding="UTF-8"?>
+        testPlist.writeAsStringSync('''
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
