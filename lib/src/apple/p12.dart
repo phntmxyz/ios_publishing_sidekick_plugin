@@ -2,6 +2,14 @@ import 'dart:io';
 
 import 'package:dcli/dcli.dart';
 
+/// Extracts certificate information from a P12 (PKCS#12) certificate file.
+///
+/// Uses OpenSSL to read the [certificate] and extract the friendly name and local key ID.
+/// Automatically handles legacy Apple certificates by retrying with the `-legacy` flag if needed.
+///
+/// The optional [password] is used to decrypt the certificate (defaults to empty string).
+///
+/// Throws when OpenSSL fails to read the certificate.
 P12CertificateInfo readP12CertificateInfo(
   File certificate, {
   String? password,
@@ -23,24 +31,36 @@ String _opensslPkcs12(File certificate, {String? password}) {
       'openssl pkcs12 -info -in ${certificate.absolute.path} -clcerts -nokeys -passin pass:${password ?? ''}';
 
   final normalProgress = Progress.capture();
-  try {
-    start(command, progress: normalProgress);
+  start(command, progress: normalProgress, nothrow: true);
+
+  if (normalProgress.exitCode == 0) {
     return normalProgress.out;
-  } catch (normalE) {
-    // Apple sometimes uses an older version of openssl which can't be read by
-    // newer versions unless the -legacy flag is set.
-    // The flag is not supported by older openssl versions, so we have to try twice
-    final legacyProgress = Progress.capture();
-    try {
-      start('$command -legacy', progress: legacyProgress);
-      return legacyProgress.out;
-    } catch (legacyE) {
-      print('Failed to read certificate with openssl:');
-      print('Without -legacy flag:\n$normalE\n');
-      print('With -legacy flag:\n$legacyE\n');
-      rethrow;
-    }
   }
+
+  // Apple sometimes uses an older version of openssl which can't be read by
+  // newer versions unless the -legacy flag is set.
+  // The flag is not supported by older openssl versions, so we have to try twice
+  final legacyProgress = Progress.capture();
+  start('$command -legacy', progress: legacyProgress, nothrow: true);
+
+  if (legacyProgress.exitCode == 0) {
+    return legacyProgress.out;
+  }
+
+  // Both attempts failed
+  print(
+    'Failed to read certificate with openssl:\n'
+    'Without -legacy flag (exit code ${normalProgress.exitCode}):\n'
+    '${normalProgress.out}\n'
+    'With -legacy flag (exit code ${legacyProgress.exitCode}):\n'
+    '${legacyProgress.out}\n',
+  );
+  throw Exception(
+    'openssl failed to read certificate. '
+    'Exit codes: '
+    'normal=${normalProgress.exitCode}, '
+    'legacy=${legacyProgress.exitCode}',
+  );
 }
 
 class P12CertificateInfo {
