@@ -48,11 +48,19 @@ String _opensslPkcs12(File certificate, {String? password}) {
   }
 
   // Both attempts failed
-  print('Failed to read certificate with openssl:');
-  print('Without -legacy flag (exit code ${normalProgress.exitCode}):\n${normalProgress.out}\n');
-  print('With -legacy flag (exit code ${legacyProgress.exitCode}):\n${legacyProgress.out}\n');
+  print(
+    'Failed to read certificate with openssl:\n'
+    'Without -legacy flag (exit code ${normalProgress.exitCode}):\n'
+    '${normalProgress.out}\n'
+    'With -legacy flag (exit code ${legacyProgress.exitCode}):\n'
+    '${legacyProgress.out}\n',
+  );
   throw Exception(
-      'openssl failed to read certificate. Exit codes: normal=${normalProgress.exitCode}, legacy=${legacyProgress.exitCode}');
+    'openssl failed to read certificate. '
+    'Exit codes: '
+    'normal=${normalProgress.exitCode}, '
+    'legacy=${legacyProgress.exitCode}',
+  );
 }
 
 class P12CertificateInfo {
