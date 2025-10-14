@@ -78,95 +78,6 @@ class XcodePbxproj {
     file.writeAsStringSync(update);
   }
 
-  /// Sets Bundle ID for Main App (Runner) target only - DEPRECATED, use setBundleIdentifier instead
-  void setMainAppBundleIdentifier(String bundleIdentifier) {
-    // Just delegate to the working setBundleIdentifier method
-    setBundleIdentifier(bundleIdentifier);
-  }
-
-  /// Sets Bundle ID for ShareExtension target only
-  void setShareExtensionBundleIdentifier(String bundleIdentifier) {
-    file.verifyExistsOrThrow();
-
-    print('Setting ShareExtension Bundle ID to "$bundleIdentifier"');
-    final content = file.readAsStringSync();
-
-    // Find and replace any Bundle ID that ends with .ShareExtension
-    final updated = content.replaceAllMapped(RegExp(r'(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*\.ShareExtension;'),
-        (match) => '${match.group(1)}$bundleIdentifier;');
-
-    file.writeAsStringSync(updated);
-  }
-
-  /// Sets Provisioning Profile for Main App (Runner) target only
-  void setMainAppProvisioningProfile(String provisioningProfileName) {
-    file.verifyExistsOrThrow();
-
-    print('Setting Main App Provisioning Profile to "$provisioningProfileName"');
-    final content = file.readAsStringSync();
-
-    // Target Runner target specifically
-    final runnerTargetRegex = RegExp(
-      r'(\/\* Begin XCBuildConfiguration section \*\/.*?name = Runner;.*?buildSettings = \{.*?)(PROVISIONING_PROFILE_SPECIFIER = [^;]*;)',
-      dotAll: true,
-    );
-
-    final match = runnerTargetRegex.firstMatch(content);
-    if (match == null) {
-      throw "Could not find Runner target PROVISIONING_PROFILE_SPECIFIER in project.pbxproj";
-    }
-
-    final updated = content.replaceAllMapped(runnerTargetRegex, (match) {
-      return '${match.group(1)}PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";';
-    });
-
-    file.writeAsStringSync(updated);
-  }
-
-  /// Sets Provisioning Profile for ShareExtension target only
-  void setShareExtensionProvisioningProfile(String provisioningProfileName) {
-    file.verifyExistsOrThrow();
-
-    print('Setting ShareExtension Provisioning Profile to "$provisioningProfileName"');
-    final content = file.readAsStringSync();
-
-    // Target ShareExtension target specifically
-    final shareExtTargetRegex = RegExp(
-      r'(\/\* Begin XCBuildConfiguration section \*\/.*?name = ShareExtension;.*?buildSettings = \{.*?)(PROVISIONING_PROFILE_SPECIFIER = [^;]*;)',
-      dotAll: true,
-    );
-
-    final match = shareExtTargetRegex.firstMatch(content);
-    if (match == null) {
-      throw "Could not find ShareExtension target PROVISIONING_PROFILE_SPECIFIER in project.pbxproj";
-    }
-
-    final updated = content.replaceAllMapped(shareExtTargetRegex, (match) {
-      return '${match.group(1)}PROVISIONING_PROFILE_SPECIFIER = "$provisioningProfileName";';
-    });
-
-    file.writeAsStringSync(updated);
-  }
-
-  /// Sets App Group for all targets
-  void setAppGroup(String appGroupId) {
-    file.verifyExistsOrThrow();
-
-    print('Setting App Group to "$appGroupId"');
-    final content = file.readAsStringSync();
-    final appGroupRegex = RegExp('RECEIVE_SHARE_INTENT_GROUP_ID = [^;]*;');
-    final match = appGroupRegex.hasMatch(content);
-    if (!match) {
-      throw "project.pbxproj doesn't contain 'RECEIVE_SHARE_INTENT_GROUP_ID'";
-    }
-    final updated = content.replaceAll(
-      appGroupRegex,
-      // TODO Remove, this is a custom property
-      'RECEIVE_SHARE_INTENT_GROUP_ID = $appGroupId;',
-    );
-    file.writeAsStringSync(updated);
-  }
-
   /// Private helper to find build configurations for a target.
   /// Returns a list of (configId, configName) pairs.
   List<({String configId, String configName})> _findBuildConfigs({
@@ -175,7 +86,9 @@ class XcodePbxproj {
   }) {
     // Step 1: Find PBXNativeTarget with matching targetName and extract buildConfigurationList ID
     final targetRegex = RegExp(
-      r'\/\* ' + RegExp.escape(targetName) + r' \*\/ = \{[^}]*isa = PBXNativeTarget;[^}]*buildConfigurationList = ([A-F0-9]+)',
+      r'\/\* ' +
+          RegExp.escape(targetName) +
+          r' \*\/ = \{[^}]*isa = PBXNativeTarget;[^}]*buildConfigurationList = ([A-F0-9]+)',
       dotAll: true,
     );
     final targetMatch = targetRegex.firstMatch(content);
@@ -186,7 +99,8 @@ class XcodePbxproj {
 
     // Step 2: Find XCConfigurationList with that ID and extract build configuration IDs
     final configListRegex = RegExp(
-      configListId + r' \/\* Build configuration list[^}]*buildConfigurations = \([^)]*\)',
+      configListId +
+          r' \/\* Build configuration list[^}]*buildConfigurations = \([^)]*\)',
       dotAll: true,
     );
     final configListMatch = configListRegex.firstMatch(content);
@@ -195,13 +109,16 @@ class XcodePbxproj {
     }
 
     // Extract build configuration IDs (e.g., "3431A0622DCB8D4A007C5167 /* Debug */")
-    final buildConfigRegex = RegExp(r'([A-F0-9]+) \/\* (Debug|Release|Profile) \*\/');
+    final buildConfigRegex =
+        RegExp(r'([A-F0-9]+) \/\* (Debug|Release|Profile) \*\/');
     final buildConfigs = buildConfigRegex.allMatches(configListMatch.group(0)!);
 
-    return buildConfigs.map((match) => (
-      configId: match.group(1)!,
-      configName: match.group(2)!,
-    )).toList();
+    return buildConfigs
+        .map((match) => (
+              configId: match.group(1)!,
+              configName: match.group(2)!,
+            ))
+        .toList();
   }
 
   /// Gets the buildSettings content for a specific target and build configuration.
@@ -234,7 +151,10 @@ class XcodePbxproj {
       if (config.configName == buildConfiguration) {
         // Find XCBuildConfiguration block and extract buildSettings
         final buildConfigBlockRegex = RegExp(
-          config.configId + r' \/\* ' + config.configName + r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\t\};',
+          config.configId +
+              r' \/\* ' +
+              config.configName +
+              r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\t\};',
           dotAll: true,
         );
 
@@ -263,7 +183,10 @@ class XcodePbxproj {
       if (config.configName == buildConfiguration) {
         // Find XCBuildConfiguration block and extract buildSettings
         final buildConfigBlockRegex = RegExp(
-          config.configId + r' \/\* ' + config.configName + r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\t\};',
+          config.configId +
+              r' \/\* ' +
+              config.configName +
+              r' \*\/ = \{[^}]*isa = XCBuildConfiguration;[^}]*buildSettings = \{(.*?)\n\t\t\t\};',
           dotAll: true,
         );
 
@@ -271,35 +194,14 @@ class XcodePbxproj {
         if (match != null) {
           final oldBuildSettings = match.group(1)!;
           final newBuildSettings = updateFunction(oldBuildSettings);
-          final replacement = match.group(0)!.replaceFirst(oldBuildSettings, newBuildSettings);
+          final replacement =
+              match.group(0)!.replaceFirst(oldBuildSettings, newBuildSettings);
           return content.replaceFirst(match.group(0)!, replacement);
         }
       }
     }
 
     return content;
-  }
-
-  /// Sets Bundle ID for Runner target only (more precise than setBundleIdentifier)
-  void setRunnerBundleIdentifier(String bundleIdentifier) {
-    file.verifyExistsOrThrow();
-
-    print('Setting Runner Bundle ID to "$bundleIdentifier"');
-    final content = file.readAsStringSync();
-
-    // Target Runner configurations specifically
-    final updated = content.replaceAllMapped(
-        RegExp(r'(name = (?:Debug|Release|Profile);.*?buildSettings = \{.*?)(PRODUCT_BUNDLE_IDENTIFIER = )[^;]*;',
-            dotAll: true), (match) {
-      final section = match.group(0)!;
-      // Only replace if this is a Runner section (not ShareExtension)
-      if (section.contains('ShareExtension')) {
-        return match.group(0)!; // Don't change ShareExtension
-      }
-      return '${match.group(1)}${match.group(2)}$bundleIdentifier;';
-    });
-
-    file.writeAsStringSync(updated);
   }
 
   /// Sets the PRODUCT_BUNDLE_IDENTIFIER for a specific extension target.
@@ -339,11 +241,13 @@ class XcodePbxproj {
   }) {
     file.verifyExistsOrThrow();
 
-    print('Setting Bundle ID for extension "$extensionName" to "$bundleIdentifier"');
+    print(
+        'Setting Bundle ID for extension "$extensionName" to "$bundleIdentifier"');
     var content = file.readAsStringSync();
 
     // Use helper to find build configurations
-    final buildConfigs = _findBuildConfigs(content: content, targetName: extensionName);
+    final buildConfigs =
+        _findBuildConfigs(content: content, targetName: extensionName);
 
     if (buildConfigs.isEmpty) {
       throw 'Could not find PBXNativeTarget with name "$extensionName" in project.pbxproj';
@@ -352,7 +256,8 @@ class XcodePbxproj {
     // Update PRODUCT_BUNDLE_IDENTIFIER for each matching configuration
     for (final config in buildConfigs) {
       // Skip if buildConfiguration is specified and doesn't match
-      if (buildConfiguration != null && config.configName != buildConfiguration) {
+      if (buildConfiguration != null &&
+          config.configName != buildConfiguration) {
         continue;
       }
 
@@ -418,11 +323,13 @@ class XcodePbxproj {
   }) {
     file.verifyExistsOrThrow();
 
-    print('Setting Provisioning Profile for extension "$extensionName" to "$provisioningProfileName"');
+    print(
+        'Setting Provisioning Profile for extension "$extensionName" to "$provisioningProfileName"');
     var content = file.readAsStringSync();
 
     // Use helper to find build configurations
-    final buildConfigs = _findBuildConfigs(content: content, targetName: extensionName);
+    final buildConfigs =
+        _findBuildConfigs(content: content, targetName: extensionName);
 
     if (buildConfigs.isEmpty) {
       throw 'Could not find PBXNativeTarget with name "$extensionName" in project.pbxproj';
@@ -431,7 +338,8 @@ class XcodePbxproj {
     // Update PROVISIONING_PROFILE_SPECIFIER for each matching configuration
     for (final config in buildConfigs) {
       // Skip if buildConfiguration is specified and doesn't match
-      if (buildConfiguration != null && config.configName != buildConfiguration) {
+      if (buildConfiguration != null &&
+          config.configName != buildConfiguration) {
         continue;
       }
 
