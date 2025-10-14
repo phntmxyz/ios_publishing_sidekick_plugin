@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.1
+- Fix port leak in `readP12CertificateInfo` which prevented the Dart VM from exiting (cli hangs after completion)
+
 ## 1.0.0
 - `buildIpa()` is now async
 - Update to sidekick_core 3.0.0

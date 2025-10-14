@@ -1,10 +1,20 @@
 import 'dart:io';
 
-Future<P12CertificateInfo> readP12CertificateInfo(
+import 'package:dcli/dcli.dart';
+
+/// Extracts certificate information from a P12 (PKCS#12) certificate file.
+///
+/// Uses OpenSSL to read the [certificate] and extract the friendly name and local key ID.
+/// Automatically handles legacy Apple certificates by retrying with the `-legacy` flag if needed.
+///
+/// The optional [password] is used to decrypt the certificate (defaults to empty string).
+///
+/// Throws when OpenSSL fails to read the certificate.
+P12CertificateInfo readP12CertificateInfo(
   File certificate, {
   String? password,
-}) async {
-  final certInfo = await _opensslPkcs12(certificate, password: password);
+}) {
+  final certInfo = _opensslPkcs12(certificate, password: password);
 
   final friendlyNameRegEx = RegExp('friendlyName: (.*)');
   final friendlyName = friendlyNameRegEx.firstMatch(certInfo)?.group(1);
@@ -16,41 +26,41 @@ Future<P12CertificateInfo> readP12CertificateInfo(
   );
 }
 
-Future<String> _opensslPkcs12(File certificate, {String? password}) async {
-  final baseArgs = [
-    'pkcs12',
-    '-info',
-    '-in',
-    certificate.absolute.path,
-    '-clcerts',
-    '-nokeys',
-    '-passin',
-    'pass:${password ?? ''}',
-  ];
+String _opensslPkcs12(File certificate, {String? password}) {
+  final command =
+      'openssl pkcs12 -info -in ${certificate.absolute.path} -clcerts -nokeys -passin pass:${password ?? ''}';
 
-  try {
-    final result = await Process.run('openssl', baseArgs);
-    if (result.exitCode == 0) {
-      return result.stdout as String;
-    }
-    throw Exception('openssl failed with exit code ${result.exitCode}: ${result.stderr}');
-  } catch (normalE) {
-    // Apple sometimes uses an older version of openssl which can't be read by
-    // newer versions unless the -legacy flag is set.
-    // The flag is not supported by older openssl versions, so we have to try twice
-    try {
-      final result = await Process.run('openssl', [...baseArgs, '-legacy']);
-      if (result.exitCode == 0) {
-        return result.stdout as String;
-      }
-      throw Exception('openssl with -legacy failed with exit code ${result.exitCode}: ${result.stderr}');
-    } catch (legacyE) {
-      print('Failed to read certificate with openssl:');
-      print('Without -legacy flag:\n$normalE\n');
-      print('With -legacy flag:\n$legacyE\n');
-      rethrow;
-    }
+  final normalProgress = Progress.capture();
+  start(command, progress: normalProgress, nothrow: true);
+
+  if (normalProgress.exitCode == 0) {
+    return normalProgress.out;
   }
+
+  // Apple sometimes uses an older version of openssl which can't be read by
+  // newer versions unless the -legacy flag is set.
+  // The flag is not supported by older openssl versions, so we have to try twice
+  final legacyProgress = Progress.capture();
+  start('$command -legacy', progress: legacyProgress, nothrow: true);
+
+  if (legacyProgress.exitCode == 0) {
+    return legacyProgress.out;
+  }
+
+  // Both attempts failed
+  print(
+    'Failed to read certificate with openssl:\n'
+    'Without -legacy flag (exit code ${normalProgress.exitCode}):\n'
+    '${normalProgress.out}\n'
+    'With -legacy flag (exit code ${legacyProgress.exitCode}):\n'
+    '${legacyProgress.out}\n',
+  );
+  throw Exception(
+    'openssl failed to read certificate. '
+    'Exit codes: '
+    'normal=${normalProgress.exitCode}, '
+    'legacy=${legacyProgress.exitCode}',
+  );
 }
 
 class P12CertificateInfo {
@@ -66,4 +76,8 @@ class P12CertificateInfo {
   String toString() {
     return 'P12CertificateInfo{friendlyName: $friendlyName, localKeyId: $localKeyId}';
   }
+}
+
+extension on Progress {
+  String get out => lines.join('\n');
 }

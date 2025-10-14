@@ -42,7 +42,8 @@ Future<File> buildIpa({
   final project = package ?? mainProject!;
 
   installProvisioningProfile(provisioningProfile);
-  final certificateInfo = await readP12CertificateInfo(certificate, password: certificatePassword);
+  final certificateInfo =
+      readP12CertificateInfo(certificate, password: certificatePassword);
 
   final keyChain = () {
     final bool isCi = env['CI'] == 'true';
@@ -63,7 +64,9 @@ Future<File> buildIpa({
   );
 
   print('Adjusting Xcode project.pbxproj file');
-  final pbxproj = project.root.file('ios/Runner.xcodeproj/project.pbxproj').asXcodePbxproj();
+  final pbxproj = project.root
+      .file('ios/Runner.xcodeproj/project.pbxproj')
+      .asXcodePbxproj();
   final revertLocalChanges = !pbxproj.file.hasLocalChanges();
 
   // Build provisioning profiles map for all targets
@@ -75,7 +78,8 @@ Future<File> buildIpa({
   if (additionalProvisioningProfiles != null) {
     for (final entry in additionalProvisioningProfiles.entries) {
       provisioningProfilesMap[entry.key] = entry.value.uuid;
-      print('Adding provisioning profile: ${entry.key} -> ${entry.value.name} (${entry.value.uuid})');
+      print(
+          'Adding provisioning profile: ${entry.key} -> ${entry.value.name} (${entry.value.uuid})');
     }
   }
 
@@ -146,7 +150,10 @@ Future<File> buildIpa({
     }
   }
 
-  final ipa = exportDir.listSync().whereType<File>().firstWhere((file) => file.name.endsWith('.ipa'));
+  final ipa = exportDir
+      .listSync()
+      .whereType<File>()
+      .firstWhere((file) => file.name.endsWith('.ipa'));
 
   return ipa;
 }
@@ -233,7 +240,8 @@ Future<void> _xcodeBuildArchive({
     if (exitCode == 0) {
       completer.complete();
     } else {
-      completer.completeError('xcodebuild archive failed with exit code $exitCode');
+      completer
+          .completeError('xcodebuild archive failed with exit code $exitCode');
     }
   });
   return completer.future;
