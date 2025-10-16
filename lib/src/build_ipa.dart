@@ -18,6 +18,14 @@ import 'package:sidekick_core/sidekick_core.dart';
 ///
 /// [newKeychain] defaults to `false` but should be set to `true` on CI
 ///
+/// [additionalProvisioningProfiles] is an optional map of bundle identifiers to provisioning profiles
+/// for additional targets (e.g., app extensions like ShareExtension). The keys are the bundle identifiers
+/// and the values are the corresponding provisioning profiles.
+///
+/// [targetBundleIds] is an optional map of target names to bundle identifiers. This allows you to
+/// override the bundle identifier for specific targets during the build. The keys are the target names
+/// (e.g., 'ShareExtension') and the values are the bundle identifiers to use for those targets.
+///
 /// Adjust [archiveSilenceTimeout] depending on your CI system. It is the time of the
 /// `xcodebuild archive` process not outputting anything to stdout or stderr.
 /// When it stops outputting (because it waits for a password input in the UI),
@@ -28,6 +36,8 @@ Future<File> buildIpa({
   required ProvisioningProfile provisioningProfile,
   required ExportMethod method,
   required String bundleIdentifier,
+  Map<String, ProvisioningProfile>? additionalProvisioningProfiles,
+  Map<String, String>? targetBundleIds,
   bool? newKeychain,
   DartPackage? package,
   Duration archiveSilenceTimeout = const Duration(minutes: 3),
@@ -67,14 +77,26 @@ Future<File> buildIpa({
       .asXcodePbxproj();
   final revertLocalChanges = !pbxproj.file.hasLocalChanges();
 
+  // Build provisioning profiles map for all targets
+  final provisioningProfilesMap = <String, String>{
+    bundleIdentifier: provisioningProfile.uuid,
+  };
+
+  // Add additional provisioning profiles (e.g., for ShareExtension)
+  if (additionalProvisioningProfiles != null) {
+    for (final entry in additionalProvisioningProfiles.entries) {
+      provisioningProfilesMap[entry.key] = entry.value.uuid;
+      print(
+          'Adding provisioning profile: ${entry.key} -> ${entry.value.name} (${entry.value.uuid})');
+    }
+  }
+
   // See "xcodebuild -h" for available exportOptionsPlist keys.
   final exportOptions = {
     'compileBitcode': true,
     'destination': 'export',
     'method': method.value,
-    'provisioningProfiles': {
-      bundleIdentifier: provisioningProfile.uuid,
-    },
+    'provisioningProfiles': provisioningProfilesMap,
     'signingCertificate': certificateInfo.friendlyName,
     'signingStyle': 'manual',
     'stripSwiftSymbols': true,
@@ -89,9 +111,6 @@ Future<File> buildIpa({
   final exportDir = project.buildDir.directory('ios/ipa/Runner');
 
   try {
-    pbxproj.setBundleIdentifier(bundleIdentifier);
-    pbxproj.setProvisioningProfileSpecifier(provisioningProfile.name);
-
     // Archive
     try {
       await _xcodeBuildArchive(
@@ -99,6 +118,8 @@ Future<File> buildIpa({
         archiveOutput: archive,
         provisioningProfile: provisioningProfile,
         certificateInfo: certificateInfo,
+        bundleIdentifier: bundleIdentifier,
+        targetBundleIds: targetBundleIds,
         silenceTimeout: archiveSilenceTimeout,
       );
     } on XcodeBuildArchiveTimeoutException catch (_) {
@@ -151,17 +172,34 @@ Future<void> _xcodeBuildArchive({
   required File archiveOutput,
   required ProvisioningProfile provisioningProfile,
   required P12CertificateInfo certificateInfo,
+  required String bundleIdentifier,
+  Map<String, String>? targetBundleIds,
   Duration silenceTimeout = const Duration(minutes: 3),
 }) async {
   final completer = Completer<void>();
   Timer? timeoutTimer;
   Process? process;
+  StreamSubscription<String>? stdoutSubscription;
+  StreamSubscription<String>? stderrSubscription;
+
+  void cleanup() {
+    if (timeoutTimer != null) {
+      timeoutTimer?.cancel();
+    }
+    if (stdoutSubscription != null) {
+      stdoutSubscription.cancel();
+    }
+    if (stderrSubscription != null) {
+      stderrSubscription.cancel();
+    }
+  }
 
   void restartTimeoutTimer() {
     timeoutTimer?.cancel();
     if (completer.isCompleted) return;
     // xcodebuild prints a lot, being silent for a while is not a good sign
     timeoutTimer = Timer(silenceTimeout, () {
+      cleanup();
       completer.completeError(XcodeBuildArchiveTimeoutException());
       process?.kill();
     });
@@ -175,10 +213,29 @@ Future<void> _xcodeBuildArchive({
     ...['-configuration', 'Release'],
     ...['-archivePath', archiveOutput.path],
     'CODE_SIGN_STYLE=Manual',
-    'PROVISIONING_PROFILE="${provisioningProfile.uuid}"',
     'CODE_SIGN_IDENTITY=${certificateInfo.friendlyName}',
     'DEVELOPMENT_TEAM=${provisioningProfile.teamIdentifier}',
   ];
+
+  // Override bundle identifier for the main Runner target
+  // We pass build settings in the format TargetName:BUILD_SETTING=value to xcodebuild.
+  // This allows us to set different bundle identifiers for different targets in a single build.
+  args.add('Runner:PRODUCT_BUNDLE_IDENTIFIER=$bundleIdentifier');
+  print('Setting Bundle ID for Runner: $bundleIdentifier');
+
+  // Override bundle identifiers for additional targets (e.g., app extensions)
+  if (targetBundleIds != null) {
+    for (final entry in targetBundleIds.entries) {
+      if (entry.key.contains(':')) {
+        throw ArgumentError(
+          'Target name "${entry.key}" must not contain colons (:). '
+          'Colons are used as delimiters in xcodebuild arguments.',
+        );
+      }
+      args.add('${entry.key}:PRODUCT_BUNDLE_IDENTIFIER=${entry.value}');
+      print('Setting Bundle ID for ${entry.key}: ${entry.value}');
+    }
+  }
 
   print("xcodebuild ${args.join(' ')}");
   process = await Process.start(
@@ -186,19 +243,19 @@ Future<void> _xcodeBuildArchive({
     args,
     workingDirectory: xcodeWorkspace.parent.path,
   );
-  process.stdout.transform(utf8.decoder).listen((line) {
+  stdoutSubscription = process.stdout.transform(utf8.decoder).listen((line) {
     if (completer.isCompleted) return;
     print(line);
     restartTimeoutTimer();
   });
-  process.stderr.transform(utf8.decoder).listen((line) {
+  stderrSubscription = process.stderr.transform(utf8.decoder).listen((line) {
     if (completer.isCompleted) return;
     printerr(line);
     restartTimeoutTimer();
   });
   await process.exitCode.then((exitCode) {
+    cleanup();
     if (exitCode == 0) {
-      timeoutTimer?.cancel();
       completer.complete();
     } else {
       completer
