@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0
+- Add support for building iOS apps with app extensions (e.g., Share Extensions)
+- New: Extension support for `buildIpa()`
+  - `additionalProvisioningProfiles` - Map of bundle identifiers to provisioning profiles for additional targets
+  - `targetBundleIds` - Map of target names to bundle identifiers to override during build
+- New: `XcodePlist` class for managing plist files
+  - `setStringValue()` - Sets a string value for a given key
+  - `setAppGroupId()` - Sets the App Group ID
+  - `setBundleIdentifier()` - Sets the CFBundleIdentifier
+  - `setBundleDisplayName()` - Sets the CFBundleDisplayName
+  - `setBundleName()` - Sets the CFBundleName
+- New: Extension helpers for `XcodePbxproj`
+  - `getBuildSettings()` - Gets buildSettings content for a specific target and configuration
+  - `setExtensionBundleIdentifier()` - Sets the bundle identifier for extension targets
+  - `setExtensionProvisioningProfile()` - Sets the provisioning profile for extension targets
+
 ## 1.0.1
 - Fix port leak in `readP12CertificateInfo` which prevented the Dart VM from exiting (cli hangs after completion)
 
