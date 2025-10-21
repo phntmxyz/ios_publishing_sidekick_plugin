@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- New: `XcodePlist.setArrayValue()` - Sets an array of string values for a given key in plist files
+
 ## 1.1.0
 - Add support for building iOS apps with app extensions (e.g., Share Extensions)
 - New: Extension support for `buildIpa()`
