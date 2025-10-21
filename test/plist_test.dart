@@ -179,6 +179,289 @@ void main() {
       });
     });
 
+    group('setArrayValue', () {
+      test('updates array with single value successfully', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue('com.apple.security.application-groups',
+            ['group.com.newapp.share']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content,
+            contains('<key>com.apple.security.application-groups</key>'));
+        expect(content, contains('<array>'));
+        expect(content, contains('<string>group.com.newapp.share</string>'));
+        expect(content, contains('</array>'));
+      });
+
+      test('updates array with multiple values successfully', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue('com.apple.security.application-groups', [
+          'group.com.example.app',
+          'group.com.example.share',
+          'group.com.example.widget'
+        ]);
+
+        final content = testPlist.readAsStringSync();
+        expect(content,
+            contains('<key>com.apple.security.application-groups</key>'));
+        expect(content, contains('<string>group.com.example.app</string>'));
+        expect(content, contains('<string>group.com.example.share</string>'));
+        expect(content, contains('<string>group.com.example.widget</string>'));
+      });
+
+      test('preserves other plist entries', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue('com.apple.security.application-groups',
+            ['group.com.newapp.share']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<key>CFBundleIdentifier</key>'));
+        expect(content, contains('<key>AppGroupId</key>'));
+        expect(content, contains('<key>NSExtension</key>'));
+      });
+
+      test('throws error when key is missing', () {
+        final plist = XcodePlist(testPlist);
+
+        expect(
+          () => plist.setArrayValue('NonExistentKey', ['value']),
+          throwsA(contains("plist doesn't contain key 'NonExistentKey'")),
+        );
+      });
+
+      test('converts string value to array with single value', () {
+        final plist = XcodePlist(testPlist);
+
+        // AppGroupId is initially a string value
+        final contentBefore = testPlist.readAsStringSync();
+        expect(contentBefore, contains('<key>AppGroupId</key>'));
+        expect(contentBefore,
+            contains(r'<string>$(RECEIVE_SHARE_INTENT_GROUP_ID)</string>'));
+        expect(
+            contentBefore, isNot(contains('<key>AppGroupId</key>\n\t<array>')));
+
+        // Convert to array
+        plist.setArrayValue('AppGroupId', ['group.com.example.app']);
+
+        final contentAfter = testPlist.readAsStringSync();
+        expect(contentAfter, contains('<key>AppGroupId</key>'));
+        expect(contentAfter, contains('<array>'));
+        expect(
+            contentAfter, contains('<string>group.com.example.app</string>'));
+        expect(contentAfter, contains('</array>'));
+        // Old string value should be gone
+        expect(
+            contentAfter,
+            isNot(contains(
+                r'<string>$(RECEIVE_SHARE_INTENT_GROUP_ID)</string>')));
+      });
+
+      test('converts string value to array with multiple values', () {
+        final plist = XcodePlist(testPlist);
+
+        // AppGroupId is initially a string value
+        final contentBefore = testPlist.readAsStringSync();
+        expect(contentBefore,
+            contains(r'<string>$(RECEIVE_SHARE_INTENT_GROUP_ID)</string>'));
+
+        // Convert to array with multiple values
+        plist.setArrayValue('AppGroupId', [
+          'group.com.example.app',
+          'group.com.example.share',
+        ]);
+
+        final contentAfter = testPlist.readAsStringSync();
+        expect(contentAfter, contains('<key>AppGroupId</key>'));
+        expect(contentAfter, contains('<array>'));
+        expect(
+            contentAfter, contains('<string>group.com.example.app</string>'));
+        expect(
+            contentAfter, contains('<string>group.com.example.share</string>'));
+        expect(contentAfter, contains('</array>'));
+      });
+
+      test('converts integer value to array', () {
+        // Create plist with integer value
+        testPlist.writeAsStringSync('''
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>SomeNumber</key>
+	<integer>42</integer>
+</dict>
+</plist>''');
+
+        final plist = XcodePlist(testPlist);
+        plist.setArrayValue('SomeNumber', ['value1', 'value2']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<key>SomeNumber</key>'));
+        expect(content, contains('<array>'));
+        expect(content, contains('<string>value1</string>'));
+        expect(content, contains('<string>value2</string>'));
+        expect(content, isNot(contains('<integer>42</integer>')));
+      });
+
+      test('converts boolean value to array', () {
+        // Create plist with boolean value
+        testPlist.writeAsStringSync('''
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>SomeFlag</key>
+	<true/>
+</dict>
+</plist>''');
+
+        final plist = XcodePlist(testPlist);
+        plist.setArrayValue('SomeFlag', ['option1', 'option2']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<key>SomeFlag</key>'));
+        expect(content, contains('<array>'));
+        expect(content, contains('<string>option1</string>'));
+        expect(content, contains('<string>option2</string>'));
+        expect(content, isNot(contains('<true/>')));
+      });
+
+      test('converts dict value to array', () {
+        final plist = XcodePlist(testPlist);
+
+        // NSExtension is a dict in the sample plist
+        plist.setArrayValue('NSExtension', ['item1', 'item2']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<key>NSExtension</key>'));
+        expect(content, contains('<array>'));
+        expect(content, contains('<string>item1</string>'));
+        expect(content, contains('<string>item2</string>'));
+        // Dict content should be gone
+        expect(content, isNot(contains('<key>NSExtensionAttributes</key>')));
+      });
+
+      test('handles empty array', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue('com.apple.security.application-groups', []);
+
+        final content = testPlist.readAsStringSync();
+        expect(content,
+            contains('<key>com.apple.security.application-groups</key>'));
+        expect(content, contains('<array>'));
+        expect(content, contains('</array>'));
+      });
+
+      test('handles values with special characters', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue('com.apple.security.application-groups',
+            [r'$(RECEIVE_SHARE_INTENT_GROUP_ID)']);
+
+        final content = testPlist.readAsStringSync();
+        print(content);
+        expect(content,
+            contains(r'<string>$(RECEIVE_SHARE_INTENT_GROUP_ID)</string>'));
+      });
+    });
+
+    group('XML escaping', () {
+      test('escapes ampersand in string values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setStringValue('AppGroupId', 'group.com.app&widget');
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>group.com.app&amp;widget</string>'));
+        expect(
+            content, isNot(contains('<string>group.com.app&widget</string>')));
+      });
+
+      test('escapes less-than in string values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setStringValue('AppGroupId', 'value<tag');
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>value&lt;tag</string>'));
+      });
+
+      test('escapes ]]> sequence in string values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setStringValue('AppGroupId', 'data]]>end');
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>data]]&gt;end</string>'));
+      });
+
+      test('escapes multiple special characters in string values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setStringValue('AppGroupId', 'a&b<c]]>d');
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>a&amp;b&lt;c]]&gt;d</string>'));
+      });
+
+      test('escapes ampersand in array values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue('com.apple.security.application-groups',
+            ['group.com.app&widget', 'group.com.share&extension']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>group.com.app&amp;widget</string>'));
+        expect(content,
+            contains('<string>group.com.share&amp;extension</string>'));
+      });
+
+      test('escapes less-than in array values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue(
+            'com.apple.security.application-groups', ['value<tag', 'item<2']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>value&lt;tag</string>'));
+        expect(content, contains('<string>item&lt;2</string>'));
+      });
+
+      test('escapes ]]> in array values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue(
+            'com.apple.security.application-groups', ['data]]>end']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>data]]&gt;end</string>'));
+      });
+
+      test('does not escape quotes in text content', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setStringValue('AppGroupId', 'value"with\'quotes');
+
+        final content = testPlist.readAsStringSync();
+        // Quotes don't need escaping in text content (only in attributes)
+        expect(content, contains('<string>value"with\'quotes</string>'));
+      });
+
+      test('handles already-escaped content correctly', () {
+        final plist = XcodePlist(testPlist);
+
+        // If someone passes already-escaped content, the & gets double-escaped
+        plist.setStringValue('AppGroupId', '&amp;');
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>&amp;amp;</string>'));
+      });
+    });
+
     group('extension method', () {
       test('asXcodePlist creates XcodePlist instance', () {
         final plist = testPlist.asXcodePlist();
