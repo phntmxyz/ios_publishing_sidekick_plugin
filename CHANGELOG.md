@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 - New: `XcodePlist.setArrayValue()` - Sets an array of string values for a given key in plist files
+- Added tons of examples
 
 ## 1.1.0
 - Add support for building iOS apps with app extensions (e.g., Share Extensions)
