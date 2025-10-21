@@ -34,5 +34,9 @@
 	</dict>
 	<key>AppGroupId</key>
 	<string>$(RECEIVE_SHARE_INTENT_GROUP_ID)</string>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.example.app</string>
+	</array>
 </dict>
 </plist>
