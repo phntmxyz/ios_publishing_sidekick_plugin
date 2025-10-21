@@ -14,7 +14,7 @@ class XcodePlist {
   /// If the key currently has any other value type (integer, real, boolean, dict, array),
   /// it will be converted to a string.
   void setStringValue(String key, String value) {
-    _setValue(key, '<string>$value</string>');
+    _setValue(key, '<string>${_escapeXmlText(value)}</string>');
   }
 
   /// Sets the CFBundleIdentifier in the plist
@@ -37,8 +37,9 @@ class XcodePlist {
   /// If the key currently has any other value type (string, integer, real, boolean, dict),
   /// it will be converted to an array. If the key already has an array value, it will be replaced.
   void setArrayValue(String key, List<String> values) {
-    final arrayItems =
-        values.map((value) => '\t\t<string>$value</string>').join('\n');
+    final arrayItems = values
+        .map((value) => '\t\t<string>${_escapeXmlText(value)}</string>')
+        .join('\n');
     final replacement = '<array>\n$arrayItems\n\t</array>';
     _setValue(key, replacement);
   }
@@ -72,6 +73,19 @@ class XcodePlist {
     final updated = content.replaceAll(keyValueRegex, replacement);
 
     file.writeAsStringSync(updated);
+  }
+
+  /// Escapes XML special characters in text content according to W3C XML spec.
+  ///
+  /// Required escaping per https://www.w3.org/TR/xml/#syntax section 2.4:
+  /// - & (ampersand) MUST be escaped as &amp;
+  /// - < (left angle bracket) MUST be escaped as &lt;
+  /// - ]]> MUST be escaped (the > becomes &gt;) when appearing in content
+  String _escapeXmlText(String text) {
+    return text
+        .replaceAll('&', '&amp;') // Must escape first to avoid double-escaping
+        .replaceAll('<', '&lt;')
+        .replaceAll(']]>', ']]&gt;');
   }
 }
 

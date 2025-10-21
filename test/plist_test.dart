@@ -369,6 +369,99 @@ void main() {
       });
     });
 
+    group('XML escaping', () {
+      test('escapes ampersand in string values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setStringValue('AppGroupId', 'group.com.app&widget');
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>group.com.app&amp;widget</string>'));
+        expect(
+            content, isNot(contains('<string>group.com.app&widget</string>')));
+      });
+
+      test('escapes less-than in string values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setStringValue('AppGroupId', 'value<tag');
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>value&lt;tag</string>'));
+      });
+
+      test('escapes ]]> sequence in string values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setStringValue('AppGroupId', 'data]]>end');
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>data]]&gt;end</string>'));
+      });
+
+      test('escapes multiple special characters in string values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setStringValue('AppGroupId', 'a&b<c]]>d');
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>a&amp;b&lt;c]]&gt;d</string>'));
+      });
+
+      test('escapes ampersand in array values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue('com.apple.security.application-groups',
+            ['group.com.app&widget', 'group.com.share&extension']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>group.com.app&amp;widget</string>'));
+        expect(content,
+            contains('<string>group.com.share&amp;extension</string>'));
+      });
+
+      test('escapes less-than in array values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue(
+            'com.apple.security.application-groups', ['value<tag', 'item<2']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>value&lt;tag</string>'));
+        expect(content, contains('<string>item&lt;2</string>'));
+      });
+
+      test('escapes ]]> in array values', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setArrayValue(
+            'com.apple.security.application-groups', ['data]]>end']);
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>data]]&gt;end</string>'));
+      });
+
+      test('does not escape quotes in text content', () {
+        final plist = XcodePlist(testPlist);
+
+        plist.setStringValue('AppGroupId', 'value"with\'quotes');
+
+        final content = testPlist.readAsStringSync();
+        // Quotes don't need escaping in text content (only in attributes)
+        expect(content, contains('<string>value"with\'quotes</string>'));
+      });
+
+      test('handles already-escaped content correctly', () {
+        final plist = XcodePlist(testPlist);
+
+        // If someone passes already-escaped content, the & gets double-escaped
+        plist.setStringValue('AppGroupId', '&amp;');
+
+        final content = testPlist.readAsStringSync();
+        expect(content, contains('<string>&amp;amp;</string>'));
+      });
+    });
+
     group('extension method', () {
       test('asXcodePlist creates XcodePlist instance', () {
         final plist = testPlist.asXcodePlist();
