@@ -38,7 +38,8 @@ Future<File> publishApp({
   pbxproj.setProvisioningProfileSpecifier('My App Store Profile');
 
   // 3. Load provisioning profile
-  final profile = File('profiles/AppStore.mobileprovision').asProvisioningProfile();
+  final profile =
+      File('profiles/AppStore.mobileprovision').asProvisioningProfile();
 
   // 4. Validate profile
   final daysValid = profile.expirationDate.difference(DateTime.now()).inDays;
@@ -96,8 +97,10 @@ Future<File> buildAppWithExtensions() async {
   );
 
   // Load profiles
-  final mainProfile = File('profiles/AppStore.mobileprovision').asProvisioningProfile();
-  final shareProfile = File('profiles/ShareExtension.mobileprovision').asProvisioningProfile();
+  final mainProfile =
+      File('profiles/AppStore.mobileprovision').asProvisioningProfile();
+  final shareProfile =
+      File('profiles/ShareExtension.mobileprovision').asProvisioningProfile();
 
   // Build
   return await buildIpa(

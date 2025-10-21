@@ -21,7 +21,8 @@ void main() {
 /// Load provisioning profile and access information.
 void readingProvisioningProfileInformation() {
   // Load provisioning profile
-  final profile = File('profiles/AppStore.mobileprovision').asProvisioningProfile();
+  final profile =
+      File('profiles/AppStore.mobileprovision').asProvisioningProfile();
 
   // Access profile information
   print('Profile Name: ${profile.name}');
@@ -48,7 +49,8 @@ void readingProvisioningProfileInformation() {
 /// Install provisioning profiles.
 void installingProvisioningProfiles() {
   // Install a provisioning profile
-  final profile = File('profiles/AppStore.mobileprovision').asProvisioningProfile();
+  final profile =
+      File('profiles/AppStore.mobileprovision').asProvisioningProfile();
   installProvisioningProfile(profile);
   print('Installed profile: ${profile.name}');
 
@@ -72,7 +74,8 @@ void validateProfileExpiration(ProvisioningProfile profile) {
   final daysUntilExpiration = profile.expirationDate.difference(now).inDays;
 
   if (daysUntilExpiration < 0) {
-    throw Exception('Profile "${profile.name}" expired on ${profile.expirationDate}');
+    throw Exception(
+        'Profile "${profile.name}" expired on ${profile.expirationDate}');
   } else if (daysUntilExpiration < 7) {
     print('⚠️  Warning: Profile expires in $daysUntilExpiration days');
   } else {

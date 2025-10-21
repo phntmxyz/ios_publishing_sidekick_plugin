@@ -24,7 +24,8 @@ Future<void> simpleIpaBuild() async {
   final ipa = await buildIpa(
     certificate: File('certificates/distribution.p12'),
     certificatePassword: 'cert-password',
-    provisioningProfile: File('profiles/AppStore.mobileprovision').asProvisioningProfile(),
+    provisioningProfile:
+        File('profiles/AppStore.mobileprovision').asProvisioningProfile(),
     method: ExportMethod.appStoreConnect,
     bundleIdentifier: 'com.example.myapp',
   );
@@ -34,9 +35,13 @@ Future<void> simpleIpaBuild() async {
 
 /// Build with App Extensions.
 Future<void> advancedIpaBuildWithExtensions() async {
-  final mainProfile = File('profiles/AppStore.mobileprovision').asProvisioningProfile();
-  final shareProfile = File('profiles/ShareExtension.mobileprovision').asProvisioningProfile();
-  final notificationProfile = File('profiles/NotificationService.mobileprovision').asProvisioningProfile();
+  final mainProfile =
+      File('profiles/AppStore.mobileprovision').asProvisioningProfile();
+  final shareProfile =
+      File('profiles/ShareExtension.mobileprovision').asProvisioningProfile();
+  final notificationProfile =
+      File('profiles/NotificationService.mobileprovision')
+          .asProvisioningProfile();
 
   final ipa = await buildIpa(
     certificate: File('certificates/distribution.p12'),
@@ -70,10 +75,14 @@ Future<void> advancedIpaBuildWithExtensions() async {
 /// Examples of different export methods.
 Future<void> differentExportMethods() async {
   // Placeholder profiles for demonstration
-  final appStoreProfile = File('profiles/AppStore.mobileprovision').asProvisioningProfile();
-  final adHocProfile = File('profiles/AdHoc.mobileprovision').asProvisioningProfile();
-  final enterpriseProfile = File('profiles/Enterprise.mobileprovision').asProvisioningProfile();
-  final developmentProfile = File('profiles/Development.mobileprovision').asProvisioningProfile();
+  final appStoreProfile =
+      File('profiles/AppStore.mobileprovision').asProvisioningProfile();
+  final adHocProfile =
+      File('profiles/AdHoc.mobileprovision').asProvisioningProfile();
+  final enterpriseProfile =
+      File('profiles/Enterprise.mobileprovision').asProvisioningProfile();
+  final developmentProfile =
+      File('profiles/Development.mobileprovision').asProvisioningProfile();
 
   // App Store Connect
   final appStoreIpa = await buildIpa(
@@ -121,19 +130,20 @@ Future<void> buildForCI() async {
     final ipa = await buildIpa(
       certificate: File(Platform.environment['P12_CERTIFICATE_PATH']!),
       certificatePassword: Platform.environment['P12_PASSWORD'],
-      provisioningProfile: File(Platform.environment['PROVISIONING_PROFILE_PATH']!)
-          .asProvisioningProfile(),
+      provisioningProfile:
+          File(Platform.environment['PROVISIONING_PROFILE_PATH']!)
+              .asProvisioningProfile(),
       method: ExportMethod.appStoreConnect,
       bundleIdentifier: Platform.environment['BUNDLE_ID']!,
       newKeychain: isCI, // Clean keychain on CI
-      archiveSilenceTimeout: const Duration(minutes: 10), // Longer timeout for CI
+      archiveSilenceTimeout:
+          const Duration(minutes: 10), // Longer timeout for CI
     );
 
     print('✓ Build successful: ${ipa.path}');
 
     // Upload to App Store Connect (using separate tool)
     // await uploadToAppStore(ipa);
-
   } on XcodeBuildArchiveTimeoutException catch (e, stackTrace) {
     print('Build timed out: $e');
     print(stackTrace);
